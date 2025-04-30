@@ -1,0 +1,13 @@
+# VS Code files
+.vscode/
+
+# Build files
+build/
+output/
+
+# CMake files
+CMakeCache.txt
+cmake_install.cmake
+CMakeFiles/
+Makefile
+cmake_uninstall.cmake
