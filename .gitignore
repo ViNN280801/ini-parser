@@ -5,6 +5,10 @@
 build/
 output/
 
+# Executables
+*.exe
+*.out
+
 # CMake files
 CMakeCache.txt
 cmake_install.cmake
