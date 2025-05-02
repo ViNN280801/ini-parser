@@ -360,6 +360,27 @@ ini_error_details_t ini_good(char const *filepath)
                 {
                     quote_count++;
                 }
+                // Array detection (.ini does not support arrays)
+                else if (*p == ',')
+                {
+                    if (fclose(file) != 0)
+                    {
+                        return create_error(
+                            INI_CLOSE_FAILED,
+                            filepath,
+                            line_num,
+                            __FILE__,
+                            __LINE__,
+                            "Failed to close file after validation");
+                    }
+                    return create_error(
+                        INI_FILE_BAD_FORMAT,
+                        filepath,
+                        line_num,
+                        __FILE__,
+                        __LINE__,
+                        "Arrays are not supported in INI files");
+                }
             }
             if (quote_count % 2 != 0)
             {
@@ -746,6 +767,10 @@ ini_error_details_t ini_free(ini_context_t *ctx)
         __FILE__,
         __LINE__,
         "File loaded successfully");
+}
+
+ini_error_details_t ini_get_value(ini_context_t const *ctx, char const *section, char const *key, char **value)
+{
 }
 
 ini_error_details_t ini_print(ini_context_t const *ctx)
