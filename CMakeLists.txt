@@ -5,6 +5,7 @@ project(${PROJECT_NAME}
     LANGUAGES C CXX
 )
 
+set(CMAKE_C_STANDARD 99)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -19,5 +20,4 @@ endif()
 add_executable(${PROJECT_NAME}
     main.cpp
     iniparser.c
-    strutils.cpp
 )
