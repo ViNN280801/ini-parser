@@ -1,7 +1,3 @@
-#if __unix__
-#define _POSIX_C_SOURCE 200112L
-#endif
-
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,7 +13,7 @@
 #define F_OK 0
 #define R_OK 4 // Read permission for _access()
 #define PATH_SEPARATOR '\\'
-#define strdup _strdup // To avoid: warning C4996: 'strdup': The POSIX name for this item is deprecated. Instead, use the ISO C and C++ conformant name: _strdup
+#define ini_strdup _strdup // To avoid: warning C4996: 'strdup': The POSIX name for this item is deprecated. Instead, use the ISO C and C++ conformant name: _strdup
 
 #else // not Windows
 #include <sys/stat.h>
@@ -600,7 +596,7 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
                         "Failed to close file");
                 }
                 current_section = &parent->subsections[parent->subsection_count++];
-                current_section->name = strdup(subsection_name);
+                current_section->name = ini_strdup(subsection_name);
                 current_section->pairs = NULL;
                 current_section->pair_count = 0;
                 current_section->subsections = NULL;
@@ -630,7 +626,7 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
                         "Failed to close file");
                 }
                 current_section = &ctx->sections[ctx->section_count++];
-                current_section->name = strdup(name);
+                current_section->name = ini_strdup(name);
                 current_section->pairs = NULL;
                 current_section->pair_count = 0;
                 current_section->subsections = NULL;
@@ -688,8 +684,8 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
                     __LINE__,
                     "Failed to close file");
             }
-            current_section->pairs[current_section->pair_count].key = strdup(key);
-            current_section->pairs[current_section->pair_count].value = strdup(value);
+            current_section->pairs[current_section->pair_count].key = ini_strdup(key);
+            current_section->pairs[current_section->pair_count].value = ini_strdup(value);
             current_section->pair_count++;
         }
     }
@@ -844,7 +840,7 @@ INIPARSER_API ini_error_details_t ini_get_value(ini_context_t const *ctx, char c
     {
         if (strcmp(found_section->pairs[j].key, key) == 0)
         {
-            *value = strdup(found_section->pairs[j].value);
+            *value = ini_strdup(found_section->pairs[j].value);
             if (!*value)
             {
                 // Unlock before returning

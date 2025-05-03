@@ -47,10 +47,16 @@ function Main {
     Write-Host "Configuring CMake with BuildType=$BuildType, LibType=$LibType, Testing=$Testing..."
     $cmakeArgs = @(
         "-B", $buildDir,
-        "-DCMAKE_BUILD_TYPE=$BuildType",
         "-DBUILD_SHARED_LIBS=$($LibType -eq 'shared')",
         "-DINIPARSER_TESTS=$Testing"
     )
+
+    # Only add CMAKE_BUILD_TYPE for single-config generators
+    $generator = cmake --help | Select-String "Generators"
+    if ($generator -match "Unix Makefiles|Ninja") {
+        $cmakeArgs += "-DCMAKE_BUILD_TYPE=$BuildType"
+    }
+
     cmake $projectRoot @cmakeArgs
     if ($LASTEXITCODE -ne 0) {
         Write-Error "CMake configuration failed"
@@ -68,7 +74,12 @@ function Main {
     # Install (if path provided)
     if ($InstallPath) {
         Write-Host "Installing to $InstallPath..."
-        cmake --install $buildDir --config $BuildType --prefix $InstallPath
+        $installArgs = @(
+            "--install", $buildDir,
+            "--config", $BuildType,
+            "--prefix", $InstallPath
+        )
+        cmake @installArgs
         if ($LASTEXITCODE -ne 0) {
             Write-Error "Installation failed"
             exit 1
