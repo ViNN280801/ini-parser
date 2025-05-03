@@ -67,8 +67,8 @@ jobs:
       - name: Build with custom script
         shell: bash
         run: |
-          # Use your build script with Release configuration and shared libs
           chmod +x ./scripts/build_and_install.sh
+          export CFLAGS="-std=c99 -D_POSIX_C_SOURCE=200112L"
           ./scripts/build_and_install.sh --build-type Release --lib-type shared --testing OFF
 
       # Initializes the CodeQL tools for scanning.
