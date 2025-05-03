@@ -1,23 +1,42 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.15)
 
 set(PROJECT_NAME iniparser)
 project(${PROJECT_NAME}
-    LANGUAGES C CXX
+    VERSION 1.0.0
+    LANGUAGES C
+    DESCRIPTION "Lightweight INI parser library for C"
 )
 
+# ================ Main settings ================
 set(CMAKE_C_STANDARD 99)
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+option(BUILD_SHARED_LIBS "Build shared library" ON)
+option(INIPARSER_TESTS "Build tests" ON)
 
-include_directories(.)
-
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /O2")
-elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zi")
-endif()
-
-add_executable(${PROJECT_NAME}
-    main.cpp
+# ================ Library ====================
+add_library(${PROJECT_NAME}
+    iniparser.h
     iniparser.c
 )
+
+target_include_directories(${PROJECT_NAME} PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<INSTALL_INTERFACE:include>
+)
+
+# ================ Testing ======================
+if(INIPARSER_TESTS)
+    set(TESTS_NAME ini_good_tests)
+
+    enable_testing()
+    add_executable(${TESTS_NAME}
+        tests/helper.h
+        tests/ini_good_tests.c
+    )
+    target_link_libraries(${TESTS_NAME} PRIVATE ${PROJECT_NAME})
+
+    add_test(
+        NAME ${TESTS_NAME}
+        COMMAND ${TESTS_NAME}
+    )
+endif()
