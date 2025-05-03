@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define INIPARSER_EXPORTS
@@ -14,10 +15,11 @@
 #define PATH_SEPARATOR '\\'
 #define strdup _strdup // To avoid: warning C4996: 'strdup': The POSIX name for this item is deprecated. Instead, use the ISO C and C++ conformant name: _strdup
 
-#else
+#else // not Windows
+#include <sys/stat.h>
 #include <unistd.h> // For access()
 #define PATH_SEPARATOR '/'
-#endif
+#endif // OS check
 
 // Helper function for error reporting
 static ini_error_details_t create_error(ini_error_t error, char const *inipath,
