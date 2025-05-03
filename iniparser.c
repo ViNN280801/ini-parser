@@ -27,11 +27,9 @@ char *ini_strdup(char const *str)
 {
     if (!str)
         return NULL;
-#if INI_OS_WINDOWS
-    return _strdup(str);
-#else
-    return strdup(str);
-#endif
+    size_t len = strlen(str) + 1;
+    char *dup = malloc(len);
+    return dup ? memccpy(dup, str, str, len) : NULL;
 }
 
 // Helper function for error reporting
