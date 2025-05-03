@@ -18,7 +18,9 @@
 #else // not Windows
 #include <sys/stat.h>
 #include <unistd.h> // For access()
+
 #define PATH_SEPARATOR '/'
+#define _POSIX_C_SOURCE 200112L
 #endif // OS check
 
 // Helper function for error reporting
