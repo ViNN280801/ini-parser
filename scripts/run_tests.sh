@@ -36,8 +36,8 @@ if [ ! -d "$BUILD_DIR" ]; then
 fi
 
 echo "Building in Release configuration..."
-cmake "$PROJECT_ROOT" -B "$BUILD_DIR"
-cmake --build "$BUILD_DIR" --config Release --parallel
+cmake -DCMAKE_BUILD_TYPE=Release "$PROJECT_ROOT" -B "$BUILD_DIR"
+make -j2
 if [ $? -ne 0 ]; then
     echo "Build failed" >&2
     exit 1
