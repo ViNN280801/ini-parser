@@ -44,7 +44,7 @@ extern "C"
     #endif
 #else
     #include <pthread.h>
-    #define INIPARSER_API
+    #define INIPARSER_API __attribute__((visibility("default")))  // For GCC/Clang
 #endif
 
 // Apple-specific optimizations

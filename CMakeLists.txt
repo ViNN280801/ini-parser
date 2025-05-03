@@ -10,6 +10,8 @@ project(${PROJECT_NAME}
 # ================ Main settings ================
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_VISIBILITY_PRESET hidden)
+set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 option(BUILD_SHARED_LIBS "Build shared library" ON)
 option(INIPARSER_TESTS "Build tests" ON)
 
