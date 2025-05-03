@@ -63,6 +63,7 @@ extern "C"
         INI_INVALID_ARGUMENT,           ///< Invalid argument passed to a function.
         INI_PLATFORM_ERROR,             ///< Platform-specific error (e.g., mutex failure).
         INI_CLOSE_FAILED,               ///< Failed to close the file.
+        INI_MEMORY_ERROR,               ///< Failed to allocate/reallocate/free memory.
         INI_PRINT_ERROR,                ///< Error during printing/formatting.
         INI_FILE_BAD_FORMAT_LINE,       ///< Syntax error at a specific line.
     } ini_error_t;
