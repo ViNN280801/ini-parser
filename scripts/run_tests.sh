@@ -36,7 +36,8 @@ if [ ! -d "$BUILD_DIR" ]; then
 fi
 
 echo "Building in Release configuration..."
-cmake -DCMAKE_BUILD_TYPE=Release "$PROJECT_ROOT" -B "$BUILD_DIR"
+mkdir -pv "$BUILD_DIR" && cd "$BUILD_DIR" || exit 1
+cmake .. -DCMAKE_BUILD_TYPE=Release -DINIPARSER_TESTS=ON
 make -j2
 if [ $? -ne 0 ]; then
     echo "Build failed" >&2
