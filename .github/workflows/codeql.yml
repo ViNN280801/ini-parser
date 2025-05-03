@@ -63,12 +63,14 @@ jobs:
         run: |
           # Install dependencies (example for Ubuntu)
           sudo apt-get update && sudo apt-get install -y cmake build-essential
+          sudo apt-get install -y gcc-multilib  # For 32/64-bit compatibility
 
       - name: Build with custom script
         shell: bash
         run: |
           chmod +x ./scripts/build_and_install.sh
-          ./scripts/build_and_install.sh
+          export CFLAGS="-std=c99 -D_POSIX_C_SOURCE=200112L"
+          ./scripts/build_and_install.sh --build-type Release --lib-type shared --testing OFF
 
       # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL
