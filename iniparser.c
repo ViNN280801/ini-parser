@@ -13,7 +13,6 @@
 #define F_OK 0
 #define R_OK 4 // Read permission for _access()
 #define PATH_SEPARATOR '\\'
-#define ini_strdup _strdup // To avoid: warning C4996: 'strdup': The POSIX name for this item is deprecated. Instead, use the ISO C and C++ conformant name: _strdup
 
 #else // not Windows
 #include <sys/stat.h>
@@ -21,6 +20,19 @@
 
 #define PATH_SEPARATOR '/'
 #endif // OS check
+
+// To avoid: warning C4996: 'strdup': The POSIX name for this item is deprecated.
+//                                    Instead, use the ISO C and C++ conformant name: _strdup
+char *ini_strdup(char const *str)
+{
+    if (!str)
+        return NULL;
+#if INI_OS_WINDOWS
+    return _strdup(str);
+#else
+    return strdup(str);
+#endif
+}
 
 // Helper function for error reporting
 static ini_error_details_t create_error(ini_error_t error, char const *inipath,
