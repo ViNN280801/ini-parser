@@ -33,7 +33,7 @@ extern "C"
 #define INI_LINE_MAX 1024
 #define INI_BUFFER_SIZE 2048
 
-#ifdef INI_OS_WINDOWS
+#if INI_OS_WINDOWS
     #ifdef _MSC_VER
         #include <windows.h>
     #endif
