@@ -18,6 +18,8 @@
 #define COLOR_SUCCESS "\033[32m"
 #define COLOR_ERROR "\033[31m"
 #define COLOR_WARNING "\033[33m"
+
+#include <unistd.h>
 #endif
 
 static void print_info(const char *format, ...)
