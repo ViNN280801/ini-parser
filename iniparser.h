@@ -1,6 +1,26 @@
 #ifndef INI_PARSER_H
 #define INI_PARSER_H
 
+// ==================== Platform checks ====================
+#if defined(_WIN32) || defined(_WIN64)
+    #define INI_OS_WINDOWS 1
+    #define INI_OS_APPLE   0
+    #define INI_OS_UNIX    0
+#elif defined(__APPLE__) && defined(__MACH__)
+    #define INI_OS_WINDOWS 0
+    #define INI_OS_APPLE   1 // macOS or iOS
+    #define INI_OS_UNIX    1  // but with Apple's peculiarities
+#elif defined(__unix__) || defined(__linux__)
+    #define INI_OS_WINDOWS 0
+    #define INI_OS_APPLE   0
+    #define INI_OS_UNIX    1 // Linux/BSD/etc
+#else
+    #define INI_OS_WINDOWS 0
+    #define INI_OS_APPLE   0
+    #define INI_OS_UNIX    0
+#endif
+// =========================================================
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -13,15 +33,20 @@ extern "C"
 #define INI_LINE_MAX 1024
 #define INI_BUFFER_SIZE 2048
 
-#ifdef _WIN32
-#include <windows.h>
+#ifdef INI_OS_WINDOWS
+    #include <windows.h>
+#ifdef INIPARSER_EXPORTS
+    #define INIPARSER_API __declspec(dllexport)
 #else
-#include <pthread.h>
+    #define INIPARSER_API __declspec(dllimport)
+#endif
+#else
+    #include <pthread.h>
 #endif
 
 // Apple-specific optimizations
-#ifdef __APPLE__
-#include <dispatch/dispatch.h> // For GCD (Grand Central Dispatch)
+#if INI_OS_APPLE
+    #include <dispatch/dispatch.h> // For GCD (Grand Central Dispatch)
 #endif
 
     typedef enum
@@ -53,8 +78,8 @@ extern "C"
         char const *custommsg; // Message that can be provided by the developer
     } ini_error_details_t;
 
-    char const *ini_error_to_string(ini_error_t error);
-    char const *ini_error_details_to_string(ini_error_details_t error_detailed);
+    INIPARSER_API char const *ini_error_to_string(ini_error_t error);
+    INIPARSER_API char const *ini_error_details_to_string(ini_error_details_t error_detailed);
 
     typedef struct
     {
@@ -75,21 +100,21 @@ extern "C"
     {
         ini_section_t *sections;
         int section_count;
-#ifdef _WIN32
+#if INI_OS_WINDOWS
         CRITICAL_SECTION mutex;
-#elif defined(__APPLE__)
+#elif INI_OS_APPLE
     dispatch_semaphore_t semaphore; // GCD semaphore (optional)
 #else
     pthread_mutex_t mutex;
 #endif
     } ini_context_t;
 
-    ini_error_details_t ini_good(char const *filepath);
-    ini_error_details_t ini_load(ini_context_t *ctx, char const *filepath);
-    ini_context_t *ini_create_context();
-    ini_error_details_t ini_free(ini_context_t *ctx);
-    ini_error_details_t ini_get_value(ini_context_t const *ctx, char const *section, char const *key, char **value);
-    ini_error_details_t ini_print(ini_context_t const *ctx);
+    INIPARSER_API ini_error_details_t ini_good(char const *filepath);
+    INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filepath);
+    INIPARSER_API ini_context_t *ini_create_context();
+    INIPARSER_API ini_error_details_t ini_free(ini_context_t *ctx);
+    INIPARSER_API ini_error_details_t ini_get_value(ini_context_t const *ctx, char const *section, char const *key, char **value);
+    INIPARSER_API ini_error_details_t ini_print(ini_context_t const *ctx);
 
 #ifdef __cplusplus
 }

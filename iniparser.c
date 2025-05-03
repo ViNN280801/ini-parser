@@ -2,9 +2,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#define INIPARSER_EXPORTS
 #include "iniparser.h"
 
-#ifdef _WIN32
+#if INI_OS_WINDOWS
 #include <io.h> // For _access()
 #include <windows.h>
 
@@ -32,7 +33,7 @@ static ini_error_details_t create_error(ini_error_t error, char const *inipath,
         .custommsg = custommsg};
 }
 
-char const *ini_error_to_string(ini_error_t error)
+INIPARSER_API char const *ini_error_to_string(ini_error_t error)
 {
     switch (error)
     {
@@ -65,7 +66,7 @@ char const *ini_error_to_string(ini_error_t error)
     }
 }
 
-char const *ini_error_details_to_string(ini_error_details_t error_detailed)
+INIPARSER_API char const *ini_error_details_to_string(ini_error_details_t error_detailed)
 {
     static char buffer[INI_BUFFER_SIZE];
     snprintf(buffer, sizeof(buffer), "code: %d - (%s)\nINI:\n\tFile: %s\n\tLine: %d\nSRC:\n\tFile: %s\n\tLine: %d\nMessage: %s",
@@ -79,7 +80,7 @@ char const *ini_error_details_to_string(ini_error_details_t error_detailed)
     return buffer;
 }
 
-ini_error_details_t ini_good(char const *filepath)
+INIPARSER_API ini_error_details_t ini_good(char const *filepath)
 {
     if (!filepath)
     {
@@ -94,7 +95,7 @@ ini_error_details_t ini_good(char const *filepath)
 
     // --- Platform-agnostic checks ---
     // Check file existence and readability
-#ifdef _WIN32
+#if INI_OS_WINDOWS
     if (_access(filepath, F_OK) != 0)
     {
         return create_error(
@@ -139,7 +140,7 @@ ini_error_details_t ini_good(char const *filepath)
 #endif
 
     // Check if it's a directory
-#ifdef _WIN32
+#if INI_OS_WINDOWS
     DWORD attrs = GetFileAttributesA(filepath);
     if (attrs == INVALID_FILE_ATTRIBUTES)
     {
@@ -186,7 +187,7 @@ ini_error_details_t ini_good(char const *filepath)
 #endif
 
     // Check file size
-#ifdef _WIN32
+#if INI_OS_WINDOWS
     FILE *file;
     if (fopen_s(&file, filepath, "rb") != 0)
     {
@@ -258,7 +259,7 @@ ini_error_details_t ini_good(char const *filepath)
     }
 
     // --- Syntax validation ---
-#ifdef _WIN32
+#if INI_OS_WINDOWS
     if (fopen_s(&file, filepath, "r") != 0)
     {
         return create_error(
@@ -329,7 +330,7 @@ ini_error_details_t ini_good(char const *filepath)
         else if (in_section && strchr(trimmed, '=') != NULL)
         {
             char *eq = strchr(trimmed, '=');
-            if (eq == trimmed || eq[1] == '\0')
+            if (eq == trimmed || eq[1] == '\0' || eq[1] == '\n')
             {
                 if (fclose(file) != 0)
                 {
@@ -423,6 +424,16 @@ ini_error_details_t ini_good(char const *filepath)
                 __LINE__,
                 "Invalid line (not a section or key-value pair)");
         }
+
+        if (strlen(trimmed) >= INI_LINE_MAX - 1)
+        {
+            return create_error(INI_FILE_BAD_FORMAT,
+                                filepath,
+                                line_num,
+                                __FILE__,
+                                __LINE__,
+                                "Line too long, max length is 1024 characters");
+        }
     }
 
     if (fclose(file) != 0)
@@ -445,7 +456,7 @@ ini_error_details_t ini_good(char const *filepath)
         "File is valid");
 }
 
-ini_error_details_t ini_load(ini_context_t *ctx, char const *filepath)
+INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filepath)
 {
     if (!ctx || !filepath)
         return create_error(
@@ -463,7 +474,7 @@ ini_error_details_t ini_load(ini_context_t *ctx, char const *filepath)
 
     // Open file
     FILE *file;
-#ifdef _WIN32
+#if INI_OS_WINDOWS
     if (fopen_s(&file, filepath, "r") != 0)
         return create_error(
             INI_FILE_OPEN_FAILED,
@@ -694,7 +705,7 @@ ini_error_details_t ini_load(ini_context_t *ctx, char const *filepath)
         "File loaded successfully");
 }
 
-ini_context_t *ini_create_context()
+INIPARSER_API ini_context_t *ini_create_context()
 {
     ini_context_t *ctx = (ini_context_t *)malloc(sizeof(ini_context_t));
     if (!ctx)
@@ -704,9 +715,9 @@ ini_context_t *ini_create_context()
     ctx->section_count = 0;
 
     // Platform-specific initialization
-#ifdef _WIN32
+#if INI_OS_WINDOWS
     InitializeCriticalSection(&ctx->mutex);
-#elif defined(__APPLE__)
+#elif INI_OS_APPLE
     ctx->semaphore = dispatch_semaphore_create(1); // Binary semaphore for mutual exclusion
 #else
     pthread_mutex_init(&ctx->mutex, NULL);
@@ -715,7 +726,7 @@ ini_context_t *ini_create_context()
     return ctx;
 }
 
-ini_error_details_t ini_free(ini_context_t *ctx)
+INIPARSER_API ini_error_details_t ini_free(ini_context_t *ctx)
 {
     if (!ctx)
         return create_error(
@@ -752,9 +763,9 @@ ini_error_details_t ini_free(ini_context_t *ctx)
     }
     free(ctx->sections);
 
-#ifdef _WIN32
+#if INI_OS_WINDOWS
     DeleteCriticalSection(&ctx->mutex);
-#elif defined(__APPLE__)
+#elif INI_OS_APPLE
     dispatch_release(ctx->semaphore);
 #else
     pthread_mutex_destroy(&ctx->mutex);
@@ -769,11 +780,119 @@ ini_error_details_t ini_free(ini_context_t *ctx)
         "File loaded successfully");
 }
 
-ini_error_details_t ini_get_value(ini_context_t const *ctx, char const *section, char const *key, char **value)
+INIPARSER_API ini_error_details_t ini_get_value(ini_context_t const *ctx, char const *section, char const *key, char **value)
 {
+    if (!ctx || !section || !key || !value)
+    {
+        return create_error(
+            INI_INVALID_ARGUMENT,
+            NULL,
+            0,
+            __FILE__,
+            __LINE__,
+            "Invalid arguments: NULL context, section, key, or value pointer");
+    }
+
+    // Thread safety: Lock the mutex/semaphore
+#if INI_OS_WINDOWS
+    EnterCriticalSection(&((ini_context_t *)ctx)->mutex); // Cast away const for mutex access
+#elif INI_OS_APPLE
+    dispatch_semaphore_wait(((ini_context_t *)ctx)->semaphore, DISPATCH_TIME_FOREVER);
+#else
+    pthread_mutex_lock(&((ini_context_t *)ctx)->mutex);
+#endif
+
+    // Search for the section
+    ini_section_t const *found_section = NULL;
+    for (int i = 0; i < ctx->section_count; i++)
+    {
+        if (strcmp(ctx->sections[i].name, section) == 0)
+        {
+            found_section = &ctx->sections[i];
+            break;
+        }
+    }
+
+    if (!found_section)
+    {
+        // Unlock before returning
+#if INI_OS_WINDOWS
+        LeaveCriticalSection(&((ini_context_t *)ctx)->mutex);
+#elif INI_OS_APPLE
+        dispatch_semaphore_signal(((ini_context_t *)ctx)->semaphore);
+#else
+        pthread_mutex_unlock(&((ini_context_t *)ctx)->mutex);
+#endif
+        return create_error(
+            INI_SECTION_NOT_FOUND,
+            NULL,
+            0,
+            __FILE__,
+            __LINE__,
+            "Section not found");
+    }
+
+    // Search for the key in the section
+    for (int j = 0; j < found_section->pair_count; j++)
+    {
+        if (strcmp(found_section->pairs[j].key, key) == 0)
+        {
+            *value = strdup(found_section->pairs[j].value);
+            if (!*value)
+            {
+                // Unlock before returning
+#if INI_OS_WINDOWS
+                LeaveCriticalSection(&((ini_context_t *)ctx)->mutex);
+#elif INI_OS_APPLE
+                dispatch_semaphore_signal(((ini_context_t *)ctx)->semaphore);
+#else
+                pthread_mutex_unlock(&((ini_context_t *)ctx)->mutex);
+#endif
+                return create_error(
+                    INI_MEMORY_ERROR,
+                    NULL,
+                    0,
+                    __FILE__,
+                    __LINE__,
+                    "Failed to duplicate value string");
+            }
+            // Unlock before returning
+#if INI_OS_WINDOWS
+            LeaveCriticalSection(&((ini_context_t *)ctx)->mutex);
+#elif INI_OS_APPLE
+            dispatch_semaphore_signal(((ini_context_t *)ctx)->semaphore);
+#else
+            pthread_mutex_unlock(&((ini_context_t *)ctx)->mutex);
+#endif
+            return create_error(
+                INI_SUCCESS,
+                NULL,
+                0,
+                __FILE__,
+                __LINE__,
+                "Value retrieved successfully");
+        }
+    }
+
+    // Key not found in the section
+    // Unlock before returning
+#if INI_OS_WINDOWS
+    LeaveCriticalSection(&((ini_context_t *)ctx)->mutex);
+#elif INI_OS_APPLE
+    dispatch_semaphore_signal(((ini_context_t *)ctx)->semaphore);
+#else
+    pthread_mutex_unlock(&((ini_context_t *)ctx)->mutex);
+#endif
+    return create_error(
+        INI_KEY_NOT_FOUND,
+        NULL,
+        0,
+        __FILE__,
+        __LINE__,
+        "Key not found in section");
 }
 
-ini_error_details_t ini_print(ini_context_t const *ctx)
+INIPARSER_API ini_error_details_t ini_print(ini_context_t const *ctx)
 {
     if (!ctx)
     {
