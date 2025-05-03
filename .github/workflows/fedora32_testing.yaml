@@ -1,0 +1,25 @@
+name: Fedora 32-bit Testing
+
+on:
+  push:
+    branches: ["main", "develop", "ci"]
+  pull_request:
+    branches: ["main", "develop", "ci"]
+
+jobs:
+  test:
+    name: Test on Fedora 32-bit
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up 32-bit environment
+        run: |
+          dnf install -y cmake gcc gcc-c++ make glibc-devel.i686
+
+      - name: Run tests
+        run: |
+          chmod +x ./scripts/run_tests.sh
+          ./scripts/run_tests.sh
