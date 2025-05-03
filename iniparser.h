@@ -34,14 +34,17 @@ extern "C"
 #define INI_BUFFER_SIZE 2048
 
 #ifdef INI_OS_WINDOWS
-    #include <windows.h>
-#ifdef INIPARSER_EXPORTS
-    #define INIPARSER_API __declspec(dllexport)
-#else
-    #define INIPARSER_API __declspec(dllimport)
-#endif
+    #ifdef _MSC_VER
+        #include <windows.h>
+    #endif
+    #ifdef INIPARSER_EXPORTS
+        #define INIPARSER_API __declspec(dllexport)
+    #else
+        #define INIPARSER_API __declspec(dllimport)
+    #endif
 #else
     #include <pthread.h>
+    #define INIPARSER_API
 #endif
 
 // Apple-specific optimizations
