@@ -4,7 +4,8 @@ show_help() {
     echo "Usage: $0 [OPTIONS]"
     echo
     echo "Options:"
-    echo "  -h, --help   Show this help message"
+    echo "  -h, --help            Show this help message"
+    echo "  -a, --arch ARCH       Specify architecture (x86, x64, default: x64)"
     echo
     echo "Description:"
     echo "  This script automatically:"
@@ -14,14 +15,20 @@ show_help() {
     echo "  4. Runs tests"
     echo
     echo "Example:"
-    echo "  $0"
+    echo "  $0 --arch x86"
 }
+
+ARCH="x64"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
     -h | --help)
         show_help
         exit 0
+        ;;
+    -a | --arch)
+        ARCH="$2"
+        shift
         ;;
     *)
         echo "Unknown option: $1" >&2
@@ -35,12 +42,23 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 BUILD_DIR="$PROJECT_ROOT/build"
 
-echo "=== Setting up build environment ==="
+echo "=== Setting up build environment for $ARCH ==="
 mkdir -pv "$BUILD_DIR" || exit 1
 
 echo -e "\n=== Configuring and building project ==="
 cd "$BUILD_DIR" || exit 1
-cmake .. -DCMAKE_BUILD_TYPE=Release -DINIPARSER_TESTS=ON || {
+
+# Configure CMake based on architecture
+CMAKE_OPTS=""
+if [ "$ARCH" = "x86" ]; then
+    # 32-bit build
+    export CFLAGS="-m32"
+    export CXXFLAGS="-m32"
+    export LDFLAGS="-m32"
+    CMAKE_OPTS="-DCMAKE_C_FLAGS=-m32 -DCMAKE_CXX_FLAGS=-m32"
+fi
+
+cmake .. -DCMAKE_BUILD_TYPE=Release -DINIPARSER_TESTS=ON $CMAKE_OPTS || {
     echo "CMake configuration failed!" >&2
     exit 1
 }
