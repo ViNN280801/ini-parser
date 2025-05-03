@@ -7,7 +7,11 @@ show_help() {
     echo "  -h, --help   Show this help message"
     echo
     echo "Description:"
-    echo "  This script builds and runs tests."
+    echo "  This script automatically:"
+    echo "  1. Creates build directory if needed"
+    echo "  2. Configures project with CMake"
+    echo "  3. Builds project"
+    echo "  4. Runs tests"
     echo
     echo "Example:"
     echo "  $0"
@@ -20,31 +24,38 @@ while [[ $# -gt 0 ]]; do
         exit 0
         ;;
     *)
-        echo "Unknown option: $1"
+        echo "Unknown option: $1" >&2
         exit 1
         ;;
     esac
+    shift
 done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 BUILD_DIR="$PROJECT_ROOT/build"
 
-if [ ! -d "$BUILD_DIR" ]; then
-    echo "Error: Build directory does not exist. Run cmake first." >&2
-    exit 1
-fi
+echo "=== Setting up build environment ==="
+mkdir -pv "$BUILD_DIR" || exit 1
 
-echo "Building in Release configuration..."
-mkdir -pv "$BUILD_DIR" && cd "$BUILD_DIR" || exit 1
-cmake .. -DCMAKE_BUILD_TYPE=Release -DINIPARSER_TESTS=ON
-make -j2
-if [ $? -ne 0 ]; then
-    echo "Build failed" >&2
-    exit 1
-fi
-
+echo -e "\n=== Configuring and building project ==="
 cd "$BUILD_DIR" || exit 1
-ctest -C Release --output-on-failure -VV
-echo "Tests completed."
+cmake .. -DCMAKE_BUILD_TYPE=Release -DINIPARSER_TESTS=ON || {
+    echo "CMake configuration failed!" >&2
+    exit 1
+}
+
+make -j$(nproc) || {
+    echo "Build failed!" >&2
+    exit 1
+}
+
+# Run tests
+echo -e "\n=== Running tests ==="
+ctest -C Release --output-on-failure -VV || {
+    echo "Some tests failed!" >&2
+    exit 1
+}
+
+echo -e "\n=== All operations completed successfully ==="
 cd "$PROJECT_ROOT" || exit 1

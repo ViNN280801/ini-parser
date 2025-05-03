@@ -15,6 +15,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: /var/cache/dnf
+          key: ${{ runner.os }}-fedora64-deps-${{ hashFiles('**/CMakeLists.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-fedora64-deps-
+
       - name: Set up build environment
         run: |
           dnf install -y cmake gcc gcc-c++ make
