@@ -29,7 +29,7 @@ char *ini_strdup(char const *str)
         return NULL;
     size_t len = strlen(str) + 1;
     char *dup = malloc(len);
-    return dup ? memccpy(dup, str, str, len) : NULL;
+    return dup ? memcpy(dup, str, str, len) : NULL;
 }
 
 // Helper function for error reporting
