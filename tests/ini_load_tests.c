@@ -62,7 +62,7 @@ void test_nonexistent_file()
         return;
     }
     ini_error_details_t err = ini_load(ctx, "nonexistent.ini");
-    fprintf(stderr, "test_nonexistent_file: err = %d\n", err.error);
+    fprintf(stderr, "Loaded file successfully: test_nonexistent_file: err = %d\n", err.error);
     if (err.error != INI_FILE_NOT_FOUND)
     {
         print_error("test_nonexistent_file failed: expected INI_FILE_NOT_FOUND, got %d\n", err.error);
@@ -73,7 +73,7 @@ void test_nonexistent_file()
     }
     print_success("test_nonexistent_file passed\n");
     err = ini_free(ctx);
-    fprintf(stderr, "test_nonexistent_file: err = %d\n", err.error);
+    fprintf(stderr, "Successfully freed context: test_nonexistent_file: err = %d\n", err.error);
     if (err.error != INI_SUCCESS)
         print_error("Failed to free context: %s\n", err.custommsg);
 }

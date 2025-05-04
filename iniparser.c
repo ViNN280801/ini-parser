@@ -783,7 +783,7 @@ unlock:
 
 cleanup:
     if (err.error != INI_SUCCESS && ctx)
-        ini_free(ctx);
+        err = ini_free(ctx);
     return err;
 }
 

@@ -66,7 +66,19 @@ cmake .. -DCMAKE_BUILD_TYPE=Release -DINIPARSER_TESTS=ON $CMAKE_OPTS || {
     exit 1
 }
 
-make -j2 || {
+# Determine number of CPU cores available
+if command -v nproc >/dev/null 2>&1; then
+    # Linux
+    NUM_CORES=$(nproc)
+elif command -v sysctl >/dev/null 2>&1; then
+    # macOS
+    NUM_CORES=$(sysctl -n hw.ncpu)
+else
+    # Default fallback
+    NUM_CORES=4
+fi
+
+make -j$NUM_CORES || {
     echo "Build failed!" >&2
     exit 1
 }
