@@ -29,14 +29,12 @@ void test_null_ctx_and_filepath()
 void test_null_filepath()
 {
     ini_context_t *ctx = ini_create_context();
-    fprintf(stderr, "test_null_filepath: ctx = %p\n", (void *)ctx);
     if (!ctx)
     {
         print_error("Failed to create context");
         return;
     }
     ini_error_details_t err = ini_load(ctx, NULL);
-    fprintf(stderr, "test_null_filepath: err = %d\n", err.error);
     if (err.error != INI_INVALID_ARGUMENT)
     {
         print_error("test_null_filepath failed: expected INI_INVALID_ARGUMENT, got %d\n", err.error);
@@ -46,10 +44,8 @@ void test_null_filepath()
     }
     print_success("test_null_filepath passed\n");
     err = ini_free(ctx);
-    fprintf(stderr, "test_null_filepath: err = %d\n", err.error);
     if (err.error != INI_SUCCESS)
         print_error("Failed to free context: %s\n", err.custommsg);
-    fprintf(stderr, "test_null_filepath: err = %d\n", err.error);
 }
 
 #if INI_OS_UNIX
@@ -59,7 +55,6 @@ void test_null_filepath()
 void test_nonexistent_file()
 {
     ini_context_t *ctx = ini_create_context();
-    fprintf(stderr, "test_nonexistent_file: ctx = %p\n", (void *)ctx);
     if (!ctx)
     {
         print_error("Failed to create context");
@@ -81,7 +76,6 @@ void test_nonexistent_file()
 #endif
 
     ini_error_details_t err = ini_load(ctx, "nonexistent.ini");
-    fprintf(stderr, "Loaded file successfully: test_nonexistent_file: err = %d\n", err.error);
     if (err.error != INI_FILE_NOT_FOUND)
     {
         print_error("test_nonexistent_file failed: expected INI_FILE_NOT_FOUND, got %d\n", err.error);
@@ -92,7 +86,6 @@ void test_nonexistent_file()
     }
     print_success("test_nonexistent_file passed\n");
     err = ini_free(ctx);
-    fprintf(stderr, "Successfully freed context: test_nonexistent_file: err = %d\n", err.error);
     if (err.error != INI_SUCCESS)
         print_error("Failed to free context: %s\n", err.custommsg);
 }
@@ -585,48 +578,27 @@ void test_reuse_ctx()
 int main()
 {
     __g_init_log_file();
-    fprintf(stderr, "Starting ini_load() tests...\n");
     test_null_ctx_and_filepath();
-    fprintf(stderr, "test_null_ctx_and_filepath passed\n");
     test_null_filepath();
-    fprintf(stderr, "test_null_filepath passed\n");
     test_nonexistent_file();
-    fprintf(stderr, "test_nonexistent_file passed\n");
     test_directory();
-    fprintf(stderr, "test_directory passed\n");
     test_empty_file();
-    fprintf(stderr, "test_empty_file passed\n");
     test_valid_file();
-    fprintf(stderr, "test_valid_file passed\n");
     test_bad_format_missing_bracket();
-    fprintf(stderr, "test_bad_format_missing_bracket passed\n");
     test_bad_format_empty_key();
-    fprintf(stderr, "test_bad_format_empty_key passed\n");
     test_bad_format_empty_value();
-    fprintf(stderr, "test_bad_format_empty_value passed\n");
     test_bad_format_unbalanced_quotes();
-    fprintf(stderr, "test_bad_format_unbalanced_quotes passed\n");
     test_bad_format_arrays_not_supported();
-    fprintf(stderr, "test_bad_format_arrays_not_supported passed\n");
     test_utf8_chars();
-    fprintf(stderr, "test_utf8_chars passed\n");
     test_windows_line_endings();
-    fprintf(stderr, "test_windows_line_endings passed\n");
     test_line_too_long();
-    fprintf(stderr, "test_line_too_long passed\n");
     test_file_deleted_during_check();
-    fprintf(stderr, "test_file_deleted_during_check passed\n");
     test_binary_data();
-    fprintf(stderr, "test_binary_data passed\n");
     test_reuse_ctx();
-    fprintf(stderr, "test_reuse_ctx passed\n");
 #if INI_OS_LINUX
     test_no_read_permission();
-    fprintf(stderr, "test_no_read_permission passed\n");
     test_symlink();
-    fprintf(stderr, "test_symlink passed\n");
     test_special_chars();
-    fprintf(stderr, "test_special_chars passed\n");
 #endif
 
     print_success("All ini_load() tests passed!\n\n");
