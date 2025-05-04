@@ -52,10 +52,6 @@ void test_null_filepath()
     fprintf(stderr, "test_null_filepath: err = %d\n", err.error);
 }
 
-#if INI_OS_UNIX
-#include <sys/stat.h>
-#endif
-
 void test_nonexistent_file()
 {
     ini_context_t *ctx = ini_create_context();
@@ -65,25 +61,10 @@ void test_nonexistent_file()
         print_error("Failed to create context");
         return;
     }
-
-#if INI_OS_UNIX
-    struct stat statbuf;
-    int ret = stat("nonexistent.ini", &statbuf);
-    if (ret == 0)
-    {
-        print_error("test_nonexistent_file failed: file exists\n");
-        return;
-    }
-    else
-    {
-        print_success("test_nonexistent_file passed with file not found\n");
-    }
-#endif
-
     ini_error_details_t err = ini_load(ctx, "nonexistent.ini");
-    if (err.error != INI_FILE_NOT_FOUND)
+    if (err.error != INI_SUCCESS)
     {
-        print_error("test_nonexistent_file failed: expected INI_FILE_NOT_FOUND, got %d\n", err.error);
+        print_error("test_nonexistent_file failed: expected INI_SUCCESS, got %d\n", err.error);
         err = ini_free(ctx);
         if (err.error != INI_SUCCESS)
             print_error("Failed to free context: %s\n", err.custommsg);

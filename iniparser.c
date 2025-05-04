@@ -523,10 +523,7 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
     // Validate file
     ini_error_details_t err = ini_good(filepath);
     if (err.error != INI_SUCCESS)
-    {
-        ini_free(ctx);
-        return err;
-    }
+        goto cleanup;
 
     // Lock mutex
     err = __INI_MUTEX_LOCK(ctx);
