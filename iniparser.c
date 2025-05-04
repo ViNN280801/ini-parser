@@ -130,7 +130,9 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
             "File is not readable");
     }
 #else
-    if (access(filepath, F_OK) != 0)
+    // On Unix/macOS, use stat() for more reliable existence check
+    struct stat statbuf;
+    if (stat(filepath, &statbuf) != 0)
     {
         return create_error(
             INI_FILE_NOT_FOUND,
