@@ -26,8 +26,7 @@ jobs:
       - name: Set up 32-bit environment
         run: |
           pacman -Syu --noconfirm
-          pacman -S --noconfirm cmake base-devel gcc-multilib lib32-glibc lib32-gcc-libs
-          ln -sf /usr/bin/gcc -m32 /usr/bin/cc
+          pacman -S --noconfirm cmake base-devel gcc-multilib lib32-glibc
 
       - name: Run tests
         run: |
