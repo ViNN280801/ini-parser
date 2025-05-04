@@ -1,0 +1,34 @@
+name: Alpine Linux 64-bit Testing
+
+on:
+  push:
+    branches: ["main", "develop", "ci"]
+  pull_request:
+    branches: ["main", "develop", "ci"]
+
+jobs:
+  test:
+    name: Test on Alpine Linux 64-bit
+    runs-on: ubuntu-latest
+    container: alpine:latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: /var/cache/apk
+          key: ${{ runner.os }}-alpine64-deps-${{ hashFiles('**/CMakeLists.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-alpine64-deps-
+
+      - name: Set up build environment
+        run: |
+          apk add --no-cache cmake make gcc g++ musl-dev
+
+      - name: Run tests
+        run: |
+          chmod +x ./scripts/run_tests.sh
+          export ARCH="x64"
+          ./scripts/run_tests.sh --arch x64

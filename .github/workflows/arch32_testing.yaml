@@ -1,0 +1,35 @@
+name: Arch Linux 32-bit Testing
+
+on:
+  push:
+    branches: ["main", "develop", "ci"]
+  pull_request:
+    branches: ["main", "develop", "ci"]
+
+jobs:
+  test:
+    name: Test on Arch Linux 32-bit
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: /var/cache/pacman/pkg
+          key: ${{ runner.os }}-arch32-deps-${{ hashFiles('**/CMakeLists.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-arch32-deps-
+
+      - name: Set up 32-bit environment
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm cmake base-devel gcc-multilib
+
+      - name: Run tests
+        run: |
+          chmod +x ./scripts/run_tests.sh
+          export ARCH="x86"
+          ./scripts/run_tests.sh --arch x86
