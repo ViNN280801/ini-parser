@@ -134,13 +134,24 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
     struct stat statbuf;
     if (stat(filepath, &statbuf) != 0)
     {
+        // Explicitly check errno for ENOENT (file doesn't exist)
+        if (errno == ENOENT)
+        {
+            return create_error(
+                INI_FILE_NOT_FOUND,
+                filepath,
+                0,
+                __FILE__,
+                __LINE__,
+                "File does not exist");
+        }
         return create_error(
-            INI_FILE_NOT_FOUND,
+            INI_FILE_OPEN_FAILED,
             filepath,
             0,
             __FILE__,
             __LINE__,
-            "File does not exist");
+            "Failed to access file");
     }
     if (access(filepath, R_OK) != 0)
     {
