@@ -132,11 +132,14 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
 #else
     // On Unix/macOS, use stat() for more reliable existence check
     struct stat statbuf;
+    fprintf(stderr, "ini_good(): Checking if file exists: %s\n", filepath);
     if (stat(filepath, &statbuf) != 0)
     {
+        fprintf(stderr, "ini_good(): stat() returned error: %s\n", strerror(errno));
         // Explicitly check errno for ENOENT (file doesn't exist)
         if (errno == ENOENT)
         {
+            fprintf(stderr, "ini_good(): File does not exist\n");
             return create_error(
                 INI_FILE_NOT_FOUND,
                 filepath,
@@ -145,6 +148,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
                 __LINE__,
                 "File does not exist");
         }
+        fprintf(stderr, "ini_good(): File exists but is not readable\n");
         return create_error(
             INI_FILE_OPEN_FAILED,
             filepath,
@@ -155,6 +159,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
     }
     if (access(filepath, R_OK) != 0)
     {
+        fprintf(stderr, "ini_good(): File is not readable\n");
         return create_error(
             INI_FILE_OPEN_FAILED,
             filepath,
@@ -163,6 +168,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
             __LINE__,
             "File is not readable");
     }
+    fprintf(stderr, "ini_good(): File is readable\n");
 #endif
 
     // Check if it's a directory
