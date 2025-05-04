@@ -10,7 +10,7 @@ jobs:
   test:
     name: Test on Alpine Linux 32-bit
     runs-on: ubuntu-latest
-    container: alpine:latest
+    container: i386/alpine:latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -26,9 +26,6 @@ jobs:
       - name: Set up 32-bit environment
         run: |
           apk add --no-cache cmake make gcc g++ musl-dev gcompat libc6-compat dos2unix file
-          echo 'export CFLAGS="-m32 -fno-stack-protector"' >> $GITHUB_ENV
-          echo 'export CXXFLAGS="-m32 -fno-stack-protector"' >> $GITHUB_ENV
-          gcc -m32 -print-libgcc-file-name
 
       - name: Run tests
         run: |
