@@ -66,7 +66,7 @@ cmake .. -DCMAKE_BUILD_TYPE=Release -DINIPARSER_TESTS=ON $CMAKE_OPTS || {
     exit 1
 }
 
-make -j$(nproc) || {
+make -j2 || {
     echo "Build failed!" >&2
     exit 1
 }
