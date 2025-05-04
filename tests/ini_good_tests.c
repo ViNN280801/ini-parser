@@ -291,6 +291,8 @@ void test_special_chars()
 int main()
 {
     __g_init_log_file();
+    __g_init_errstack();
+
     test_null_filepath();
     test_nonexistent_file();
     test_directory();
@@ -315,5 +317,5 @@ int main()
 
     print_success("All ini_good() tests passed!\n\n");
     __g_close_log_file();
-    return EXIT_SUCCESS;
+    return ini_has_error();
 }

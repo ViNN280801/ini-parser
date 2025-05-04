@@ -18,9 +18,9 @@
 void test_null_ctx_and_filepath()
 {
     ini_error_details_t err = ini_load(NULL, NULL);
-    if (err.error != INI_INVALID_ARGUMENT)
+    if (__g_has_in_errstack(INI_INVALID_ARGUMENT) == 1)
     {
-        print_error("test_null_ctx_and_filepath failed: expected INI_INVALID_ARGUMENT, got %d\n", err.error);
+        print_error("test_null_ctx_and_filepath failed: expected INI_INVALID_ARGUMENT in __g_errstack\n");
         return;
     }
     print_success("test_null_ctx_and_filepath passed\n");
@@ -35,9 +35,9 @@ void test_null_filepath()
         return;
     }
     ini_error_details_t err = ini_load(ctx, NULL);
-    if (err.error != INI_INVALID_ARGUMENT)
+    if (__g_has_in_errstack(INI_INVALID_ARGUMENT) == 1)
     {
-        print_error("test_null_filepath failed: expected INI_INVALID_ARGUMENT, got %d\n", err.error);
+        print_error("test_null_filepath failed: expected INI_INVALID_ARGUMENT in __g_errstack\n");
         if (err.error != INI_SUCCESS)
             print_error("Failed to free context: %s\n", err.custommsg);
         return;
@@ -57,9 +57,9 @@ void test_nonexistent_file()
         return;
     }
     ini_error_details_t err = ini_load(ctx, "nonexistent.ini");
-    if (err.error != INI_SUCCESS)
+    if (__g_has_in_errstack(INI_FILE_NOT_FOUND) == 1)
     {
-        print_error("test_nonexistent_file failed: expected INI_SUCCESS, got %d\n", err.error);
+        print_error("test_nonexistent_file failed: expected INI_FILE_NOT_FOUND in __g_errstack\n");
         err = ini_free(ctx);
         if (err.error != INI_SUCCESS)
             print_error("Failed to free context: %s\n", err.custommsg);
@@ -81,9 +81,9 @@ void test_directory()
         return;
     }
     ini_error_details_t err = ini_load(ctx, "test_dir");
-    if (err.error != INI_FILE_IS_DIR)
+    if (__g_has_in_errstack(INI_FILE_IS_DIR) == 1)
     {
-        print_error("test_directory failed: expected INI_FILE_IS_DIR, got %d\n", err.error);
+        print_error("test_directory failed: expected INI_FILE_IS_DIR in __g_errstack\n");
         remove_test_dir("test_dir");
         err = ini_free(ctx);
         if (err.error != INI_SUCCESS)
@@ -107,9 +107,9 @@ void test_empty_file()
         return;
     }
     ini_error_details_t err = ini_load(ctx, "empty.ini");
-    if (err.error != INI_FILE_EMPTY)
+    if (__g_has_in_errstack(INI_FILE_EMPTY) == 1)
     {
-        print_error("test_empty_file failed: expected INI_FILE_EMPTY, got %d\n", err.error);
+        print_error("test_empty_file failed: expected INI_FILE_EMPTY in __g_errstack\n");
         remove_test_file("empty.ini");
         err = ini_free(ctx);
         if (err.error != INI_SUCCESS)
@@ -135,7 +135,7 @@ void test_valid_file()
     ini_error_details_t err = ini_load(ctx, "valid.ini");
     if (err.error != INI_SUCCESS)
     {
-        print_error("test_valid_file failed: expected INI_SUCCESS, got %d\n", err.error);
+        print_error("test_valid_file failed: expected INI_SUCCESS in __g_errstack\n");
         ini_free(ctx);
         remove_test_file("valid.ini");
         return;
@@ -157,9 +157,9 @@ void test_bad_format_missing_bracket()
         return;
     }
     ini_error_details_t err = ini_load(ctx, "bad_missing_bracket.ini");
-    if (err.error != INI_FILE_BAD_FORMAT)
+    if (__g_has_in_errstack(INI_FILE_BAD_FORMAT) == 1)
     {
-        print_error("test_bad_format_missing_bracket failed: expected INI_FILE_BAD_FORMAT, got %d\n", err.error);
+        print_error("test_bad_format_missing_bracket failed: expected INI_FILE_BAD_FORMAT in __g_errstack\n");
         remove_test_file("bad_missing_bracket.ini");
         ini_free(ctx);
         return;
@@ -181,9 +181,9 @@ void test_bad_format_empty_key()
         return;
     }
     ini_error_details_t err = ini_load(ctx, "bad_empty_key.ini");
-    if (err.error != INI_FILE_BAD_FORMAT)
+    if (__g_has_in_errstack(INI_FILE_BAD_FORMAT) == 1)
     {
-        print_error("test_bad_format_empty_key failed: expected INI_FILE_BAD_FORMAT, got %d\n", err.error);
+        print_error("test_bad_format_empty_key failed: expected INI_FILE_BAD_FORMAT in __g_errstack\n");
         remove_test_file("bad_empty_key.ini");
         err = ini_free(ctx);
         if (err.error != INI_SUCCESS)
@@ -207,9 +207,9 @@ void test_bad_format_empty_value()
         return;
     }
     ini_error_details_t err = ini_load(ctx, "bad_empty_value.ini");
-    if (err.error != INI_FILE_BAD_FORMAT)
+    if (__g_has_in_errstack(INI_FILE_BAD_FORMAT) == 1)
     {
-        print_error("test_bad_format_empty_value failed: expected INI_FILE_BAD_FORMAT, got %d\n", err.error);
+        print_error("test_bad_format_empty_value failed: expected INI_FILE_BAD_FORMAT in __g_errstack\n");
         remove_test_file("bad_empty_value.ini");
         err = ini_free(ctx);
         if (err.error != INI_SUCCESS)
@@ -233,9 +233,9 @@ void test_bad_format_unbalanced_quotes()
         return;
     }
     ini_error_details_t err = ini_load(ctx, "bad_unbalanced_quotes.ini");
-    if (err.error != INI_FILE_BAD_FORMAT)
+    if (__g_has_in_errstack(INI_FILE_BAD_FORMAT) == 1)
     {
-        print_error("test_bad_format_unbalanced_quotes failed: expected INI_FILE_BAD_FORMAT, got %d\n", err.error);
+        print_error("test_bad_format_unbalanced_quotes failed: expected INI_FILE_BAD_FORMAT in __g_errstack\n");
         remove_test_file("bad_unbalanced_quotes.ini");
         err = ini_free(ctx);
         if (err.error != INI_SUCCESS)
@@ -259,9 +259,9 @@ void test_bad_format_arrays_not_supported()
         return;
     }
     ini_error_details_t err = ini_load(ctx, "bad_arrays.ini");
-    if (err.error != INI_FILE_BAD_FORMAT)
+    if (__g_has_in_errstack(INI_FILE_BAD_FORMAT) == 1)
     {
-        print_error("test_bad_format_arrays_not_supported failed: expected INI_FILE_BAD_FORMAT, got %d\n", err.error);
+        print_error("test_bad_format_arrays_not_supported failed: expected INI_FILE_BAD_FORMAT in __g_errstack\n");
         remove_test_file("bad_arrays.ini");
         err = ini_free(ctx);
         if (err.error != INI_SUCCESS)
@@ -287,7 +287,7 @@ void test_utf8_chars()
     ini_error_details_t err = ini_load(ctx, "utf8.ini");
     if (err.error != INI_SUCCESS)
     {
-        print_error("test_utf8_chars failed: expected INI_SUCCESS, got %d\n", err.error);
+        print_error("test_utf8_chars failed: expected INI_SUCCESS in __g_errstack\n");
         remove_test_file("utf8.ini");
         err = ini_free(ctx);
         if (err.error != INI_SUCCESS)
@@ -313,7 +313,7 @@ void test_windows_line_endings()
     ini_error_details_t err = ini_load(ctx, "windows.ini");
     if (err.error != INI_SUCCESS)
     {
-        print_error("test_windows_line_endings failed: expected INI_SUCCESS, got %d\n", err.error);
+        print_error("test_windows_line_endings failed: expected INI_SUCCESS in __g_errstack\n");
         remove_test_file("windows.ini");
         err = ini_free(ctx);
         if (err.error != INI_SUCCESS)
@@ -341,9 +341,9 @@ void test_line_too_long()
         return;
     }
     ini_error_details_t err = ini_load(ctx, "long_line.ini");
-    if (err.error != INI_FILE_BAD_FORMAT)
+    if (__g_has_in_errstack(INI_FILE_BAD_FORMAT) == 1)
     {
-        print_error("test_line_too_long failed: expected INI_FILE_BAD_FORMAT, got %d\n", err.error);
+        print_error("test_line_too_long failed: expected INI_FILE_BAD_FORMAT in __g_errstack\n");
         remove_test_file("long_line.ini");
         err = ini_free(ctx);
         if (err.error != INI_SUCCESS)
@@ -369,9 +369,9 @@ void test_file_deleted_during_check()
         return;
     }
     ini_error_details_t err = ini_load(ctx, filepath);
-    if (err.error != INI_FILE_NOT_FOUND)
+    if (__g_has_in_errstack(INI_FILE_NOT_FOUND) == 1)
     {
-        print_error("test_file_deleted_during_check failed: expected INI_FILE_NOT_FOUND, got %d\n", err.error);
+        print_error("test_file_deleted_during_check failed: expected INI_FILE_NOT_FOUND in __g_errstack\n");
         ini_free(ctx);
         return;
     }
@@ -413,9 +413,9 @@ void test_binary_data()
         return;
     }
     ini_error_details_t err = ini_load(ctx, filepath);
-    if (err.error != INI_FILE_BAD_FORMAT)
+    if (__g_has_in_errstack(INI_FILE_BAD_FORMAT) == 1)
     {
-        print_error("test_binary_data failed: expected INI_FILE_BAD_FORMAT, got %d\n", err.error);
+        print_error("test_binary_data failed: expected INI_FILE_BAD_FORMAT in __g_errstack\n");
         remove_test_file(filepath);
         err = ini_free(ctx);
         if (err.error != INI_SUCCESS)
@@ -441,9 +441,9 @@ void test_no_read_permission()
         return;
     }
     ini_error_details_t err = ini_load(ctx, "no_read.ini");
-    if (err.error != INI_FILE_OPEN_FAILED)
+    if (__g_has_in_errstack(INI_FILE_OPEN_FAILED) == 1)
     {
-        print_error("test_no_read_permission failed: expected INI_FILE_OPEN_FAILED, got %d\n", err.error);
+        print_error("test_no_read_permission failed: expected INI_FILE_OPEN_FAILED in __g_errstack\n");
         remove_test_file("no_read.ini");
         err = ini_free(ctx);
         if (err.error != INI_SUCCESS)
@@ -470,7 +470,7 @@ void test_symlink()
     ini_error_details_t err = ini_load(ctx, "symlink.ini");
     if (err.error != INI_SUCCESS)
     {
-        print_error("test_symlink failed: expected INI_SUCCESS, got %d\n", err.error);
+        print_error("test_symlink failed: expected INI_SUCCESS in __g_errstack\n");
         remove_test_file("symlink.ini");
         remove_test_file("target.ini");
         err = ini_free(ctx);
@@ -559,6 +559,8 @@ void test_reuse_ctx()
 int main()
 {
     __g_init_log_file();
+    __g_init_errstack();
+
     test_null_ctx_and_filepath();
     test_null_filepath();
     test_nonexistent_file();
@@ -584,5 +586,5 @@ int main()
 
     print_success("All ini_load() tests passed!\n\n");
     __g_close_log_file();
-    return EXIT_SUCCESS;
+    return ini_has_error();
 }

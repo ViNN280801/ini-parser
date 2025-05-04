@@ -30,6 +30,8 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 if(INIPARSER_TESTS)
     set(INI_GOOD_TESTS ini_good_tests)
     set(INI_LOAD_TESTS ini_load_tests)
+    set(INI_CREATE_CONTEXT_TESTS ini_create_context_tests)
+    set(INI_FREE_TESTS ini_free_tests)
 
     enable_testing()
 
@@ -37,6 +39,10 @@ if(INIPARSER_TESTS)
     target_link_libraries(${INI_GOOD_TESTS} PRIVATE ${PROJECT_NAME})
     add_executable(${INI_LOAD_TESTS} tests/ini_load_tests.c)
     target_link_libraries(${INI_LOAD_TESTS} PRIVATE ${PROJECT_NAME})
+    add_executable(${INI_CREATE_CONTEXT_TESTS} tests/ini_create_context_tests.c)
+    target_link_libraries(${INI_CREATE_CONTEXT_TESTS} PRIVATE ${PROJECT_NAME})
+    add_executable(${INI_FREE_TESTS} tests/ini_free_tests.c)
+    target_link_libraries(${INI_FREE_TESTS} PRIVATE ${PROJECT_NAME})
 
     add_test(
         NAME ${INI_GOOD_TESTS}
@@ -45,5 +51,13 @@ if(INIPARSER_TESTS)
     add_test(
         NAME ${INI_LOAD_TESTS}
         COMMAND ${INI_LOAD_TESTS}
+    )
+    add_test(
+        NAME ${INI_CREATE_CONTEXT_TESTS}
+        COMMAND ${INI_CREATE_CONTEXT_TESTS}
+    )
+    add_test(
+        NAME ${INI_FREE_TESTS}
+        COMMAND ${INI_FREE_TESTS}
     )
 endif()

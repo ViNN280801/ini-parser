@@ -22,6 +22,12 @@
 #include <unistd.h>
 #endif
 
+static int __g_exit_code = EXIT_SUCCESS;
+
+inline static void __g_set_exit_code(int code) { __g_exit_code = code; }
+inline static void __g_reset_exit_code() { __g_exit_code = EXIT_SUCCESS; }
+inline static int __g_get_exit_code() { return __g_exit_code; }
+
 static FILE *__g_lfd = NULL; // log file descriptor
 char const *__g_log_file_name = "test.log";
 

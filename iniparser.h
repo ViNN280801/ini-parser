@@ -4,42 +4,42 @@
 // ==================== Platform checks ====================
 /// @link https://stackoverflow.com/questions/5919996/how-to-detect-reliably-mac-os-x-ios-linux-windows-in-c-preprocessor
 #if defined(_WIN32) || defined(_WIN64)
-    #define INI_OS_WINDOWS 1
-    #define INI_OS_APPLE   0
-    #define INI_OS_UNIX    0
+#define INI_OS_WINDOWS 1
+#define INI_OS_APPLE 0
+#define INI_OS_UNIX 0
 #elif __APPLE__
-    #include <TargetConditionals.h>
-    #if TARGET_IPHONE_SIMULATOR
-        // iOS, tvOS, or watchOS Simulator
-        #define INI_OS_WINDOWS 0
-        #define INI_OS_APPLE   1
-        #define INI_OS_UNIX    0
-    #elif TARGET_OS_MACCATALYST
-        // Mac's Catalyst (ports iOS API into Mac, like UIKit).
-        #define INI_OS_WINDOWS 0
-        #define INI_OS_APPLE   1
-        #define INI_OS_UNIX    0
-    #elif TARGET_OS_IPHONE
-        // iOS, tvOS, or watchOS device
-        #define INI_OS_WINDOWS 0
-        #define INI_OS_APPLE   1
-        #define INI_OS_UNIX    0
-    #elif TARGET_OS_MAC
-        // Other kinds of Apple platforms
-        #define INI_OS_WINDOWS 0
-        #define INI_OS_APPLE   1
-        #define INI_OS_UNIX    0
-    #else
-        #error "Unknown Apple platform"
-    #endif
-#elif defined(__unix__) || defined(__linux__)
-    #define INI_OS_WINDOWS 0
-    #define INI_OS_APPLE   0
-    #define INI_OS_UNIX    1 // Linux/BSD/etc
+#include <TargetConditionals.h>
+#if TARGET_IPHONE_SIMULATOR
+// iOS, tvOS, or watchOS Simulator
+#define INI_OS_WINDOWS 0
+#define INI_OS_APPLE 1
+#define INI_OS_UNIX 0
+#elif TARGET_OS_MACCATALYST
+// Mac's Catalyst (ports iOS API into Mac, like UIKit).
+#define INI_OS_WINDOWS 0
+#define INI_OS_APPLE 1
+#define INI_OS_UNIX 0
+#elif TARGET_OS_IPHONE
+// iOS, tvOS, or watchOS device
+#define INI_OS_WINDOWS 0
+#define INI_OS_APPLE 1
+#define INI_OS_UNIX 0
+#elif TARGET_OS_MAC
+// Other kinds of Apple platforms
+#define INI_OS_WINDOWS 0
+#define INI_OS_APPLE 1
+#define INI_OS_UNIX 0
 #else
-    #define INI_OS_WINDOWS 0
-    #define INI_OS_APPLE   0
-    #define INI_OS_UNIX    0
+#error "Unknown Apple platform"
+#endif
+#elif defined(__unix__) || defined(__linux__)
+#define INI_OS_WINDOWS 0
+#define INI_OS_APPLE 0
+#define INI_OS_UNIX 1 // Linux/BSD/etc
+#else
+#define INI_OS_WINDOWS 0
+#define INI_OS_APPLE 0
+#define INI_OS_UNIX 0
 #endif
 // =========================================================
 
@@ -52,55 +52,94 @@ extern "C"
 #define INI_PARSER_VERSION "1.0.0"
 #endif
 
+#define INI_ERRSTACK_SIZE 1024
 #define INI_LINE_MAX 1024
 #define INI_BUFFER_SIZE 2048
 
 #if INI_OS_WINDOWS
-    #ifdef _MSC_VER
-        #include <windows.h>
-    #endif
-    #ifdef INIPARSER_EXPORTS
-        #define INIPARSER_API __declspec(dllexport)
-    #else
-        #define INIPARSER_API __declspec(dllimport)
-    #endif
+#ifdef _MSC_VER
+#include <windows.h>
+#endif
+#ifdef INIPARSER_EXPORTS
+#define INIPARSER_API __declspec(dllexport)
 #else
-    #include <pthread.h>
-    #define INIPARSER_API __attribute__((visibility("default")))  // For GCC/Clang
+#define INIPARSER_API __declspec(dllimport)
+#endif
+#else
+#include <pthread.h>
+#define INIPARSER_API __attribute__((visibility("default"))) // For GCC/Clang
 #endif
 
 // Apple-specific optimizations
 #if INI_OS_APPLE
-    #include <dispatch/dispatch.h> // For GCD (Grand Central Dispatch)
+#include <dispatch/dispatch.h> // For GCD (Grand Central Dispatch)
 #endif
 
     /// @brief Error codes returned by the INI parser.
     typedef enum
     {
-        INI_SUCCESS = 0,                ///< Operation succeeded.
-        INI_FILE_NOT_FOUND,             ///< Specified file does not exist.
-        INI_FILE_EMPTY,                 ///< File is empty.
-        INI_FILE_IS_DIR,                ///< Path points to a directory, not a file.
-        INI_FILE_OPEN_FAILED,           ///< Failed to open the file.
-        INI_FILE_BAD_FORMAT,            ///< File has invalid INI syntax.
-        INI_SECTION_NOT_FOUND,          ///< Requested section does not exist.
-        INI_KEY_NOT_FOUND,              ///< Requested key does not exist.
-        INI_INVALID_ARGUMENT,           ///< Invalid argument passed to a function.
-        INI_PLATFORM_ERROR,             ///< Platform-specific error (e.g., mutex failure).
-        INI_CLOSE_FAILED,               ///< Failed to close the file.
-        INI_MEMORY_ERROR,               ///< Failed to allocate/reallocate/free memory.
-        INI_PRINT_ERROR,                ///< Error during printing/formatting.
-        INI_FILE_BAD_FORMAT_LINE,       ///< Syntax error at a specific line.
+        INI_SUCCESS = 0,          ///< Operation succeeded.
+        INI_FILE_NOT_FOUND,       ///< Specified file does not exist.
+        INI_FILE_EMPTY,           ///< File is empty.
+        INI_FILE_IS_DIR,          ///< Path points to a directory, not a file.
+        INI_FILE_OPEN_FAILED,     ///< Failed to open the file.
+        INI_FILE_BAD_FORMAT,      ///< File has invalid INI syntax.
+        INI_SECTION_NOT_FOUND,    ///< Requested section does not exist.
+        INI_KEY_NOT_FOUND,        ///< Requested key does not exist.
+        INI_INVALID_ARGUMENT,     ///< Invalid argument passed to a function.
+        INI_PLATFORM_ERROR,       ///< Platform-specific error (e.g., mutex failure).
+        INI_CLOSE_FAILED,         ///< Failed to close the file.
+        INI_MEMORY_ERROR,         ///< Failed to allocate/reallocate/free memory.
+        INI_PRINT_ERROR,          ///< Error during printing/formatting.
+        INI_FILE_BAD_FORMAT_LINE, ///< Syntax error at a specific line.
     } ini_error_t;
+
+    static ini_error_t __g_errstack[INI_ERRSTACK_SIZE];
+    static void __g_init_errstack()
+    {
+        memset(__g_errstack, INI_SUCCESS, INI_ERRSTACK_SIZE * sizeof(ini_error_t));
+    }
+    static void __g_clear_errstack()
+    {
+        for (int i = 0; i < INI_ERRSTACK_SIZE; i++)
+            __g_errstack[i] = INI_SUCCESS;
+    }
+    static void __g_add_in_errstack(ini_error_t error)
+    {
+        for (int i = 0; i < INI_ERRSTACK_SIZE; i++)
+            if (__g_errstack[i] == INI_SUCCESS)
+                __g_errstack[i] = error;
+    }
+
+    /// @brief Private function, returns 1 if `__errstack` contains specified error, otherwise 0.
+    static int __g_has_in_errstack(ini_error_t error)
+    {
+        for (int i = 0; i < INI_ERRSTACK_SIZE; i++)
+            if (__g_errstack[i] == error)
+                return 1;
+        return 0;
+    }
+
+    /**
+     * @brief Checks if there are any errors in the error stack.
+     * @return 1 if there were errors in operations, 0 otherwise.
+     */
+    static int ini_has_error()
+    {
+        for (int i = 0; i < INI_ERRSTACK_SIZE; i++)
+            if (__g_errstack[i] != INI_SUCCESS)
+                return 1;
+        return 0;
+    }
 
     typedef struct
     {
-        ini_error_t error;        ///< Error code.
-        char const *inipath;      ///< Path to the INI file.
-        char const *srcpath;      ///< Path to the C source file where the error occurred.
-        int ini_line_number;      ///< Line number in the INI file (if applicable -> 0 if not applicable).
-        int src_line_number;      ///< Line number in the source file (if applicable -> 0 if not applicable).
-        char const *custommsg;    ///< Message that can be provided by the developer.
+        ini_error_t error;     ///< Error code.
+        char const *inipath;   ///< Path to the INI file.
+        char const *srcpath;   ///< Path to the C source file where the error occurred.
+        int ini_line_number;   ///< Line number in the INI file (if applicable -> 0 if not applicable).
+        int src_line_number;   ///< Line number in the source file (if applicable -> 0 if not applicable).
+        char const *custommsg; ///< Message that can be provided by the developer.
     } ini_error_details_t;
 
     /**
@@ -141,9 +180,9 @@ extern "C"
 #if INI_OS_WINDOWS
         CRITICAL_SECTION mutex;
 #elif INI_OS_APPLE
-        dispatch_semaphore_t semaphore; // GCD semaphore (optional)
+    dispatch_semaphore_t semaphore; // GCD semaphore (optional)
 #else
-        pthread_mutex_t mutex;
+    pthread_mutex_t mutex;
 #endif
     } ini_context_t;
 
@@ -188,11 +227,11 @@ extern "C"
      * @return Error details (INI_SUCCESS on success).
      * @note Thread-safe: Uses mutex/semaphore internally.
      */
-    INIPARSER_API ini_error_details_t ini_get_value(ini_context_t const *ctx, 
-                                                    char const *section, 
-                                                    char const *key, 
+    INIPARSER_API ini_error_details_t ini_get_value(ini_context_t const *ctx,
+                                                    char const *section,
+                                                    char const *key,
                                                     char **value);
-    
+
     /**
      * @brief Prints the INI context contents (for debugging).
      * @param ctx Context to print.
