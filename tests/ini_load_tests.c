@@ -52,6 +52,10 @@ void test_null_filepath()
     fprintf(stderr, "test_null_filepath: err = %d\n", err.error);
 }
 
+#if INI_OS_APPLE
+#include <sys/stat.h>
+#endif
+
 void test_nonexistent_file()
 {
     ini_context_t *ctx = ini_create_context();
@@ -61,6 +65,21 @@ void test_nonexistent_file()
         print_error("Failed to create context");
         return;
     }
+
+#if INI_OS_APPLE
+    struct stat statbuf;
+    int ret = stat("nonexistent.ini", &statbuf);
+    if (ret == 0)
+    {
+        print_error("test_nonexistent_file failed: file exists\n");
+        return;
+    }
+    else
+    {
+        print_success("test_nonexistent_file passed with file not found\n");
+    }
+#endif
+
     ini_error_details_t err = ini_load(ctx, "nonexistent.ini");
     fprintf(stderr, "Loaded file successfully: test_nonexistent_file: err = %d\n", err.error);
     if (err.error != INI_FILE_NOT_FOUND)
