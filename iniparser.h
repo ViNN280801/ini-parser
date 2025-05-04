@@ -2,14 +2,36 @@
 #define INI_PARSER_H
 
 // ==================== Platform checks ====================
+/// @link https://stackoverflow.com/questions/5919996/how-to-detect-reliably-mac-os-x-ios-linux-windows-in-c-preprocessor
 #if defined(_WIN32) || defined(_WIN64)
     #define INI_OS_WINDOWS 1
     #define INI_OS_APPLE   0
     #define INI_OS_UNIX    0
-#elif defined(__APPLE__) && defined(__MACH__)
-    #define INI_OS_WINDOWS 0
-    #define INI_OS_APPLE   1 // macOS or iOS
-    #define INI_OS_UNIX    1  // but with Apple's peculiarities
+#elif __APPLE__
+    #include <TargetConditionals.h>
+    #if TARGET_IPHONE_SIMULATOR
+        // iOS, tvOS, or watchOS Simulator
+        #define INI_OS_WINDOWS 0
+        #define INI_OS_APPLE   1
+        #define INI_OS_UNIX    0
+    #elif TARGET_OS_MACCATALYST
+        // Mac's Catalyst (ports iOS API into Mac, like UIKit).
+        #define INI_OS_WINDOWS 0
+        #define INI_OS_APPLE   1
+        #define INI_OS_UNIX    0
+    #elif TARGET_OS_IPHONE
+        // iOS, tvOS, or watchOS device
+        #define INI_OS_WINDOWS 0
+        #define INI_OS_APPLE   1
+        #define INI_OS_UNIX    0
+    #elif TARGET_OS_MAC
+        // Other kinds of Apple platforms
+        #define INI_OS_WINDOWS 0
+        #define INI_OS_APPLE   1
+        #define INI_OS_UNIX    0
+    #else
+        #error "Unknown Apple platform"
+    #endif
 #elif defined(__unix__) || defined(__linux__)
     #define INI_OS_WINDOWS 0
     #define INI_OS_APPLE   0
