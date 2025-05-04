@@ -566,7 +566,7 @@ int main()
     __g_init_log_file();
     test_null_ctx_and_filepath();
     test_null_filepath();
-#if INI_OS_APPLE
+#if INI_OS_APPLE == 0
     test_nonexistent_file();
 #endif
     test_directory();
