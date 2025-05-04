@@ -801,8 +801,11 @@ INIPARSER_API ini_context_t *ini_create_context()
     InitializeCriticalSection(&ctx->mutex);
 #elif INI_OS_APPLE
     ctx->semaphore = dispatch_semaphore_create(1); // Binary semaphore for mutual exclusion
+    if (!ctx->semaphore)
+        return NULL;
 #else
-    pthread_mutex_init(&ctx->mutex, NULL);
+    if (pthread_mutex_init(&ctx->mutex, NULL) != 0)
+        return NULL;
 #endif
 
     return ctx;

@@ -30,6 +30,9 @@ function Main {
         New-Item -ItemType Directory -Path $buildDir | Out-Null
     }
 
+    # Clean build directory
+    Remove-Item -Recurse -Force $buildDir
+
     Write-Host "Building in Release configuration for $Architecture..."
     
     # Configure CMake with architecture
@@ -48,7 +51,14 @@ function Main {
 
     Set-Location $buildDir
     ctest -C Release --output-on-failure -VV
-    Write-Host "Tests completed."
+    $logPath = Join-Path $buildDir "test.log"
+    if (Test-Path $logPath) {
+        Write-Host "Tests completed. Here is the info from the log file:"
+        Get-Content $logPath
+    }
+    else {
+        Write-Warning "Log file not found at $logPath"
+    }
     Set-Location $projectRoot
 }
 

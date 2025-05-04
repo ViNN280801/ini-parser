@@ -555,6 +555,7 @@ void test_reuse_ctx()
 
 int main()
 {
+    __g_init_log_file();
     test_null_ctx_and_filepath();
     test_null_filepath();
     test_nonexistent_file();
@@ -579,6 +580,7 @@ int main()
     test_special_chars();
 #endif
 
-    print_success("All ini_load tests passed!\n");
+    print_success("All ini_load() tests passed!\n\n");
+    __g_close_log_file();
     return EXIT_SUCCESS;
 }
