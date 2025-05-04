@@ -178,7 +178,6 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
             "Path is a directory");
     }
 #else
-    struct stat statbuf;
     if (stat(filepath, &statbuf) != 0)
     {
         return create_error(
