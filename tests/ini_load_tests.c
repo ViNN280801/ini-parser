@@ -29,31 +29,40 @@ void test_null_ctx_and_filepath()
 void test_null_filepath()
 {
     ini_context_t *ctx = ini_create_context();
+    fprintf(stderr, "test_null_filepath: ctx = %p\n", (void *)ctx);
     if (!ctx)
     {
         print_error("Failed to create context");
         return;
     }
     ini_error_details_t err = ini_load(ctx, NULL);
+    fprintf(stderr, "test_null_filepath: err = %d\n", err.error);
     if (err.error != INI_INVALID_ARGUMENT)
     {
         print_error("test_null_filepath failed: expected INI_INVALID_ARGUMENT, got %d\n", err.error);
-        ini_free(ctx);
+        if (err.error != INI_SUCCESS)
+            print_error("Failed to free context: %s\n", err.custommsg);
         return;
     }
     print_success("test_null_filepath passed\n");
-    ini_free(ctx);
+    err = ini_free(ctx);
+    fprintf(stderr, "test_null_filepath: err = %d\n", err.error);
+    if (err.error != INI_SUCCESS)
+        print_error("Failed to free context: %s\n", err.custommsg);
+    fprintf(stderr, "test_null_filepath: err = %d\n", err.error);
 }
 
 void test_nonexistent_file()
 {
     ini_context_t *ctx = ini_create_context();
+    fprintf(stderr, "test_nonexistent_file: ctx = %p\n", (void *)ctx);
     if (!ctx)
     {
         print_error("Failed to create context");
         return;
     }
     ini_error_details_t err = ini_load(ctx, "nonexistent.ini");
+    fprintf(stderr, "test_nonexistent_file: err = %d\n", err.error);
     if (err.error != INI_FILE_NOT_FOUND)
     {
         print_error("test_nonexistent_file failed: expected INI_FILE_NOT_FOUND, got %d\n", err.error);
@@ -64,6 +73,7 @@ void test_nonexistent_file()
     }
     print_success("test_nonexistent_file passed\n");
     err = ini_free(ctx);
+    fprintf(stderr, "test_nonexistent_file: err = %d\n", err.error);
     if (err.error != INI_SUCCESS)
         print_error("Failed to free context: %s\n", err.custommsg);
 }
