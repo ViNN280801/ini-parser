@@ -45,6 +45,9 @@ BUILD_DIR="$PROJECT_ROOT/build"
 echo "=== Setting up build environment for $ARCH ==="
 mkdir -pv "$BUILD_DIR" || exit 1
 
+# Clean build directory
+rm -rf "$BUILD_DIR"/*
+
 echo -e "\n=== Configuring and building project ==="
 cd "$BUILD_DIR" || exit 1
 
@@ -74,6 +77,14 @@ ctest -C Release --output-on-failure -VV || {
     echo "Some tests failed!" >&2
     exit 1
 }
+
+logPath="$BUILD_DIR/test.log"
+if [ -f "$logPath" ]; then
+    echo -e "\n=== Tests completed. Here is the info from the log file: ==="
+    cat "$logPath"
+else
+    echo -e "\n=== Log file not found at $logPath ==="
+fi
 
 echo -e "\n=== All operations completed successfully ==="
 cd "$PROJECT_ROOT" || exit 1
