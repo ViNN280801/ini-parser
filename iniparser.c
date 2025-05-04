@@ -471,46 +471,86 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
 
 INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filepath)
 {
-    if (!ctx || !filepath)
+    if (!filepath)
         return create_error(
             INI_INVALID_ARGUMENT,
             filepath,
             0,
             __FILE__,
             __LINE__,
-            "Invalid arguments");
+            "Filepath is emtpy");
+
+    if (!ctx)
+    {
+        ctx = ini_create_context();
+        if (!ctx)
+            return create_error(
+                INI_MEMORY_ERROR,
+                filepath,
+                0,
+                __FILE__,
+                __LINE__,
+                "Failed to create context");
+    }
+    else
+    {
+        ini_error_details_t err = ini_free(ctx);
+        if (err.error != INI_SUCCESS)
+            return err;
+        ctx = ini_create_context();
+        if (!ctx)
+            return create_error(
+                INI_MEMORY_ERROR,
+                filepath,
+                0,
+                __FILE__,
+                __LINE__,
+                "Failed to create context");
+    }
 
     // Validate file
     ini_error_details_t err = ini_good(filepath);
     if (err.error != INI_SUCCESS)
-        return err;
+        goto cleanup;
+
+    // Lock mutex
+    err = __INI_MUTEX_LOCK(ctx);
+    if (err.error != INI_SUCCESS)
+        goto cleanup;
 
     // Open file
     FILE *file;
 #if INI_OS_WINDOWS
     if (fopen_s(&file, filepath, "r") != 0)
-        return create_error(
+    {
+        err = create_error(
             INI_FILE_OPEN_FAILED,
             filepath,
             0,
             __FILE__,
             __LINE__,
             "Failed to open file");
+        goto unlock;
+    }
 #else
     file = fopen(filepath, "r");
     if (!file)
-        return create_error(
+    {
+        err = create_error(
             INI_FILE_OPEN_FAILED,
             filepath,
             0,
             __FILE__,
             __LINE__,
             "Failed to open file");
+        goto unlock;
+    }
 #endif
 
     char line[INI_LINE_MAX];
     ini_section_t *current_section = NULL;
 
+    // Parsing ini file
     while (fgets(line, sizeof(line), file))
     {
         char *trimmed = line;
@@ -528,21 +568,24 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
             if (!end)
             {
                 if (fclose(file) != 0)
-                    return create_error(
+                {
+                    err = create_error(
                         INI_CLOSE_FAILED,
                         filepath,
                         0,
                         __FILE__,
                         __LINE__,
                         "Failed to close file");
-
-                return create_error(
+                    goto unlock;
+                }
+                err = create_error(
                     INI_FILE_BAD_FORMAT,
                     filepath,
                     0,
                     __FILE__,
                     __LINE__,
                     "Failed to close file");
+                goto unlock;
             }
             *end = '\0';
             char *name = trimmed + 1;
@@ -567,21 +610,24 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
                 if (!parent)
                 {
                     if (fclose(file) != 0)
-                        return create_error(
+                    {
+                        err = create_error(
                             INI_CLOSE_FAILED,
                             filepath,
                             0,
                             __FILE__,
                             __LINE__,
                             "Failed to close file");
-
-                    return create_error(
+                        goto unlock;
+                    }
+                    err = create_error(
                         INI_SECTION_NOT_FOUND,
                         filepath,
                         0,
                         __FILE__,
                         __LINE__,
                         "Failed to close file");
+                    goto unlock;
                 }
 
                 // Add subsection
@@ -589,21 +635,24 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
                 if (!parent->subsections)
                 {
                     if (fclose(file) != 0)
-                        return create_error(
+                    {
+                        err = create_error(
                             INI_CLOSE_FAILED,
                             filepath,
                             0,
                             __FILE__,
                             __LINE__,
                             "Failed to close file");
-
-                    return create_error(
+                        goto unlock;
+                    }
+                    err = create_error(
                         INI_MEMORY_ERROR,
                         filepath,
                         0,
                         __FILE__,
                         __LINE__,
                         "Failed to close file");
+                    goto unlock;
                 }
                 current_section = &parent->subsections[parent->subsection_count++];
                 current_section->name = ini_strdup(subsection_name);
@@ -619,21 +668,24 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
                 if (!ctx->sections)
                 {
                     if (fclose(file) != 0)
-                        return create_error(
+                    {
+                        err = create_error(
                             INI_CLOSE_FAILED,
                             filepath,
                             0,
                             __FILE__,
                             __LINE__,
                             "Failed to close file");
-
-                    return create_error(
+                        goto unlock;
+                    }
+                    err = create_error(
                         INI_MEMORY_ERROR,
                         filepath,
                         0,
                         __FILE__,
                         __LINE__,
                         "Failed to close file");
+                    goto unlock;
                 }
                 current_section = &ctx->sections[ctx->section_count++];
                 current_section->name = ini_strdup(name);
@@ -678,21 +730,24 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
             if (!current_section->pairs)
             {
                 if (fclose(file) != 0)
-                    return create_error(
+                {
+                    err = create_error(
                         INI_CLOSE_FAILED,
                         filepath,
                         0,
                         __FILE__,
                         __LINE__,
                         "Failed to close file");
-
-                return create_error(
+                    goto unlock;
+                }
+                err = create_error(
                     INI_MEMORY_ERROR,
                     filepath,
                     0,
                     __FILE__,
                     __LINE__,
                     "Failed to close file");
+                goto unlock;
             }
             current_section->pairs[current_section->pair_count].key = ini_strdup(key);
             current_section->pairs[current_section->pair_count].value = ini_strdup(value);
@@ -701,14 +756,18 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
     }
 
     if (fclose(file) != 0)
-        return create_error(
+    {
+        err = create_error(
             INI_CLOSE_FAILED,
             filepath,
             0,
             __FILE__,
             __LINE__,
             "Failed to close file");
+        goto unlock;
+    }
 
+    goto unlock;
     return create_error(
         INI_SUCCESS,
         filepath,
@@ -716,6 +775,16 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
         __FILE__,
         __LINE__,
         "File loaded successfully");
+
+unlock:
+    __INI_MUTEX_UNLOCK(ctx);
+    if (err.error != INI_SUCCESS)
+        goto cleanup;
+
+cleanup:
+    if (err.error != INI_SUCCESS && ctx)
+        ini_free(ctx);
+    return err;
 }
 
 INIPARSER_API ini_context_t *ini_create_context()
@@ -727,7 +796,7 @@ INIPARSER_API ini_context_t *ini_create_context()
     ctx->sections = NULL;
     ctx->section_count = 0;
 
-    // Platform-specific initialization
+    // Platform-specific initialization of the mutex/semaphore
 #if INI_OS_WINDOWS
     InitializeCriticalSection(&ctx->mutex);
 #elif INI_OS_APPLE
@@ -748,7 +817,7 @@ INIPARSER_API ini_error_details_t ini_free(ini_context_t *ctx)
             0,
             __FILE__,
             __LINE__,
-            "Invalid arguments");
+            "Invalid arguments: NULL context, nothing to free");
 
     for (int i = 0; i < ctx->section_count; i++)
     {
@@ -996,4 +1065,36 @@ INIPARSER_API ini_error_details_t ini_print(ini_context_t const *ctx)
         __FILE__,
         __LINE__,
         "File loaded successfully");
+}
+
+INIPARSER_API ini_error_details_t __INI_MUTEX_LOCK(ini_context_t *ctx)
+{
+    if (!ctx)
+        create_error(INI_INVALID_ARGUMENT, NULL, 0, __FILE__, __LINE__, "Context is NULL");
+
+#if INI_OS_WINDOWS
+    EnterCriticalSection(&ctx->mutex);
+#elif INI_OS_APPLE
+    dispatch_semaphore_wait(ctx->semaphore, DISPATCH_TIME_FOREVER);
+#else
+    pthread_mutex_lock(&ctx->mutex);
+#endif
+
+    return create_error(INI_SUCCESS, NULL, 0, __FILE__, __LINE__, "Mutex locked successfully");
+}
+
+INIPARSER_API ini_error_details_t __INI_MUTEX_UNLOCK(ini_context_t *ctx)
+{
+    if (!ctx)
+        return create_error(INI_INVALID_ARGUMENT, NULL, 0, __FILE__, __LINE__, "Context is NULL");
+
+#if INI_OS_WINDOWS
+    LeaveCriticalSection(&ctx->mutex);
+#elif INI_OS_APPLE
+    dispatch_semaphore_signal(ctx->semaphore);
+#else
+    pthread_mutex_unlock(&ctx->mutex);
+#endif
+
+    return create_error(INI_SUCCESS, NULL, 0, __FILE__, __LINE__, "Mutex unlocked successfully");
 }

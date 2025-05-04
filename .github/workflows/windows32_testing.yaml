@@ -22,12 +22,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-windows32-deps-
 
-      - name: Set up 32-bit environment
+      - name: Set up build environment
         run: |
           choco install cmake -y
-          # Note: Additional setup may be required for 32-bit builds on Windows.
 
       - name: Run tests
         run: |
-          chmod +x ./scripts/run_tests.sh
-          ./scripts/run_tests.sh
+          $env:ARCH = "x86"
+          ./scripts/run_tests.ps1 -Architecture x86

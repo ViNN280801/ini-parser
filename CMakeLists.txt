@@ -28,17 +28,22 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 
 # ================ Testing ======================
 if(INIPARSER_TESTS)
-    set(TESTS_NAME ini_good_tests)
+    set(INI_GOOD_TESTS ini_good_tests)
+    set(INI_LOAD_TESTS ini_load_tests)
 
     enable_testing()
-    add_executable(${TESTS_NAME}
-        tests/helper.h
-        tests/ini_good_tests.c
-    )
-    target_link_libraries(${TESTS_NAME} PRIVATE ${PROJECT_NAME})
+
+    add_executable(${INI_GOOD_TESTS} tests/ini_good_tests.c)
+    target_link_libraries(${INI_GOOD_TESTS} PRIVATE ${PROJECT_NAME})
+    add_executable(${INI_LOAD_TESTS} tests/ini_load_tests.c)
+    target_link_libraries(${INI_LOAD_TESTS} PRIVATE ${PROJECT_NAME})
 
     add_test(
-        NAME ${TESTS_NAME}
-        COMMAND ${TESTS_NAME}
+        NAME ${INI_GOOD_TESTS}
+        COMMAND ${INI_GOOD_TESTS}
+    )
+    add_test(
+        NAME ${INI_LOAD_TESTS}
+        COMMAND ${INI_LOAD_TESTS}
     )
 endif()

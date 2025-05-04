@@ -1,0 +1,35 @@
+name: Debian 64-bit Testing
+
+on:
+  push:
+    branches: ["main", "develop", "ci"]
+  pull_request:
+    branches: ["main", "develop", "ci"]
+
+jobs:
+  test:
+    name: Test on Debian 64-bit
+    runs-on: ubuntu-latest
+    container: debian:latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: /var/cache/apt/archives
+          key: ${{ runner.os }}-debian64-deps-${{ hashFiles('**/CMakeLists.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-debian64-deps-
+
+      - name: Set up build environment
+        run: |
+          apt-get update
+          apt-get install -y cmake build-essential
+
+      - name: Run tests
+        run: |
+          chmod +x ./scripts/run_tests.sh
+          export ARCH="x64"
+          ./scripts/run_tests.sh --arch x64

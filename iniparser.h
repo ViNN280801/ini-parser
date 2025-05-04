@@ -114,59 +114,83 @@ extern "C"
     {
         ini_section_t *sections;
         int section_count;
+
+        /// @brief Mutex for thread safety when using the context in a multi-threaded environment.
 #if INI_OS_WINDOWS
         CRITICAL_SECTION mutex;
 #elif INI_OS_APPLE
-    dispatch_semaphore_t semaphore; // GCD semaphore (optional)
+        dispatch_semaphore_t semaphore; // GCD semaphore (optional)
 #else
-    pthread_mutex_t mutex;
+        pthread_mutex_t mutex;
 #endif
     } ini_context_t;
 
     /**
-     * @brief Validates an INI file without loading it.
-    * @param filepath Path to the INI file.
-    * @return Detailed error information (success if `error == INI_SUCCESS`).
-    */
+     * @brief Checks if an INI file is valid (exists, readable, and well-formatted).
+     * @param filepath Path to the INI file.
+     * @return Error details (INI_SUCCESS if valid).
+     */
     INIPARSER_API ini_error_details_t ini_good(char const *filepath);
 
     /**
      * @brief Loads an INI file into a context.
-     * @param ctx The context to populate.
-     * @param filepath Path to the INI file.
-     * @return Detailed error information.
+     * @param[in, out] ctx The context to populate. Assumes it is NULL.
+     *                     It will be initialized with ini_create_context() if it is NULL.
+     *                     Otherwise, it will be freed with ini_free() before loading the new file.
+     * @param[in] filepath Path to the INI file.
+     * @return Error details (INI_SUCCESS on success).
+     * @note Thread-safe: Uses mutex/semaphore internally.
      */
     INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filepath);
 
     /**
-     * @brief Creates a new INI context.
-     * @return A pointer to the newly created context (or NULL on failure).
+     * @brief Allocates and initializes a new INI context.
+     * @return New context (NULL on failure).
+     * @note Initializes platform-specific mutex/semaphore.
      */
     INIPARSER_API ini_context_t *ini_create_context();
 
     /**
-     * @brief Frees an INI context and its resources.
-     * @param ctx The context to free.
-     * @return Detailed error information.
+     * @brief Frees an INI context and all its resources (sections, keys, mutex).
+     * @param ctx Context to free.
+     * @return Error details (INI_SUCCESS on success).
      */
     INIPARSER_API ini_error_details_t ini_free(ini_context_t *ctx);
 
     /**
-     * @brief Retrieves a value from an INI context.
-     * @param ctx The context to query.
-     * @param section The section name (or NULL for global keys).
-     * @param key The key name.
-     * @param[out] value Pointer to store the retrieved value (must be freed by the caller).
-     * @return Detailed error information.
+     * @brief Gets a value from a section in the INI context.
+     * @param ctx Context to query.
+     * @param section Section name (NULL for global keys).
+     * @param key Key name, for example: "gui" or "gui.mainwindow"
+     * @param[out] value Retrieved value (caller must free).
+     * @return Error details (INI_SUCCESS on success).
+     * @note Thread-safe: Uses mutex/semaphore internally.
      */
-    INIPARSER_API ini_error_details_t ini_get_value(ini_context_t const *ctx, char const *section, char const *key, char **value);
+    INIPARSER_API ini_error_details_t ini_get_value(ini_context_t const *ctx, 
+                                                    char const *section, 
+                                                    char const *key, 
+                                                    char **value);
     
     /**
-     * @brief Prints the contents of an INI context (for debugging).
-     * @param ctx The context to print.
-     * @return Detailed error information.
+     * @brief Prints the INI context contents (for debugging).
+     * @param ctx Context to print.
+     * @return Error details (INI_SUCCESS on success).
      */
     INIPARSER_API ini_error_details_t ini_print(ini_context_t const *ctx);
+
+    /**
+     * @brief Locks the context's mutex/semaphore (internal use).
+     * @param ctx Context to lock.
+     * @return Error details (INI_SUCCESS on success).
+     */
+    INIPARSER_API ini_error_details_t __INI_MUTEX_LOCK(ini_context_t *ctx);
+
+    /**
+     * @brief Unlocks the context's mutex/semaphore (internal use).
+     * @param ctx Context to unlock.
+     * @return Error details (INI_SUCCESS on success).
+     */
+    INIPARSER_API ini_error_details_t __INI_MUTEX_UNLOCK(ini_context_t *ctx);
 
 #ifdef __cplusplus
 }
