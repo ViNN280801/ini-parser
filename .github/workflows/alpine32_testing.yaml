@@ -25,10 +25,12 @@ jobs:
 
       - name: Set up 32-bit environment
         run: |
-          apk add --no-cache cmake make gcc g++ musl-dev gcompat libc6-compat
+          apk add --no-cache cmake make gcc g++ musl-dev gcompat libc6-compat dos2unix file
 
       - name: Run tests
         run: |
-          chmod +x "$GITHUB_WORKSPACE/scripts/run_tests.sh"
+          cd "$GITHUB_WORKSPACE/scripts"
+          dos2unix run_tests.sh
+          chmod +x run_tests.sh
           export ARCH="x86"
-          "$GITHUB_WORKSPACE/scripts/run_tests.sh" --arch x86
+          /bin/sh run_tests.sh --arch x86
