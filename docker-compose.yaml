@@ -1,0 +1,117 @@
+services:
+  # Alpine Linux (32-bit)
+  alpine32:
+    image: alpine:latest
+    platform: linux/386
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    command: |
+      sh -c "
+      apk add --no-cache cmake make gcc g++ musl-dev gcompat libc6-compat dos2unix file &&
+      cd scripts &&
+      dos2unix run_tests.sh &&
+      chmod +x run_tests.sh &&
+      /bin/sh run_tests.sh --arch x86
+      "
+
+  # Alpine Linux (64-bit)
+  alpine64:
+    image: alpine:latest
+    platform: linux/amd64
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    command: |
+      sh -c "
+      apk add --no-cache cmake make gcc g++ musl-dev gcompat libc6-compat dos2unix file &&
+      cd scripts &&
+      dos2unix run_tests.sh &&
+      chmod +x run_tests.sh &&
+      /bin/sh run_tests.sh --arch x64
+      "
+
+  # Arch Linux (64-bit)
+  arch64:
+    image: archlinux:latest
+    platform: linux/amd64
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    command: |
+      sh -c "
+      pacman -Syu --noconfirm &&
+      pacman -S --noconfirm cmake base-devel dos2unix &&
+      cd scripts &&
+      dos2unix run_tests.sh &&
+      chmod +x run_tests.sh &&
+      cd .. &&
+      /bin/sh scripts/run_tests.sh --arch x64
+      "
+
+  # Debian (32-bit)
+  debian32:
+    image: debian:latest
+    platform: linux/386
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    command: |
+      sh -c "
+      dpkg --add-architecture i386 &&
+      apt-get update &&
+      apt-get install -y cmake build-essential gcc-multilib g++-multilib libc6-dev-i386 &&
+      chmod +x ./scripts/run_tests.sh && export ARCH=x86 && ./scripts/run_tests.sh --arch x86
+      "
+
+  # Debian (64-bit)
+  debian64:
+    image: debian:latest
+    platform: linux/amd64
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    command: |
+      sh -c "
+      apt-get update &&
+      apt-get install -y cmake build-essential &&
+      chmod +x ./scripts/run_tests.sh &&
+      export ARCH=x64 &&
+      ./scripts/run_tests.sh --arch x64
+      "
+
+  # Fedora (32-bit)
+  fedora32:
+    image: fedora:latest
+    platform: linux/386
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    command: sh -c "dnf install -y cmake gcc gcc-c++ make glibc-devel.i686 libstdc++-devel.i686 && chmod +x ./scripts/run_tests.sh && export ARCH=x86 && ./scripts/run_tests.sh --arch x86"
+
+  # Fedora (64-bit)
+  fedora64:
+    image: fedora:latest
+    platform: linux/amd64
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    command: sh -c "dnf install -y cmake gcc gcc-c++ make && chmod +x ./scripts/run_tests.sh && export ARCH=x64 && ./scripts/run_tests.sh --arch x64"
+
+  # Ubuntu (32-bit)
+  ubuntu32:
+    image: ubuntu:latest
+    platform: linux/386
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    command: sh -c "dpkg --add-architecture i386 && apt-get update && apt-get install -y cmake build-essential gcc-multilib g++-multilib libc6-dev-i386 && chmod +x ./scripts/run_tests.sh && export ARCH=x86 && ./scripts/run_tests.sh --arch x86"
+
+  # Ubuntu (64-bit)
+  ubuntu64:
+    image: ubuntu:latest
+    platform: linux/amd64
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    command: sh -c "apt-get update && apt-get install -y cmake build-essential && chmod +x ./scripts/run_tests.sh && export ARCH=x64 && ./scripts/run_tests.sh --arch x64"
