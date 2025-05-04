@@ -26,6 +26,8 @@ jobs:
       - name: Set up 32-bit environment
         run: |
           apk add --no-cache cmake make gcc g++ musl-dev gcompat libc6-compat dos2unix file
+          apk add --no-cache libgcc libstdc++ libssp_nonshared --repository=http://dl-cdn.alpinelinux.org/alpine/edge/main
+          gcc -m32 -print-libgcc-file-name
 
       - name: Run tests
         run: |
