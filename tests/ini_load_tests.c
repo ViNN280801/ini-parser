@@ -565,12 +565,8 @@ int main()
 {
     __g_init_log_file();
     test_null_ctx_and_filepath();
-#if INI_OS_APPLE == 0 // For some strange reason,
-                      // no matter what I do, these tests always fail only on macOS.
-                      // So, I just decided to skip them.
     test_null_filepath();
     test_nonexistent_file();
-#endif
     test_directory();
     test_empty_file();
     test_valid_file();

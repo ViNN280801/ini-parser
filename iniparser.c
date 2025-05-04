@@ -828,6 +828,8 @@ INIPARSER_API ini_context_t *ini_create_context()
     }
 #endif
 
+    fprintf(stdout, "---> Context created successfully\n");
+
     return ctx;
 }
 
@@ -875,6 +877,8 @@ INIPARSER_API ini_error_details_t ini_free(ini_context_t *ctx)
 #else
     pthread_mutex_destroy(&ctx->mutex);
 #endif
+
+    fprintf(stdout, "---> Context freed successfully\n");
 
     return create_error(
         INI_SUCCESS,
