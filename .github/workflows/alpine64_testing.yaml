@@ -25,7 +25,7 @@ jobs:
 
       - name: Set up build environment
         run: |
-          apk add --no-cache cmake make gcc g++ musl-dev
+          apk add --no-cache cmake make gcc g++ musl-dev gcompat libc6-compat
 
       - name: Run tests
         run: |
