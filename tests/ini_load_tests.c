@@ -52,7 +52,7 @@ void test_null_filepath()
     fprintf(stderr, "test_null_filepath: err = %d\n", err.error);
 }
 
-#if INI_OS_APPLE
+#if INI_OS_UNIX
 #include <sys/stat.h>
 #endif
 
@@ -66,7 +66,7 @@ void test_nonexistent_file()
         return;
     }
 
-#if INI_OS_APPLE
+#if INI_OS_UNIX
     struct stat statbuf;
     int ret = stat("nonexistent.ini", &statbuf);
     if (ret == 0)
