@@ -200,6 +200,7 @@ INIPARSER_API void ini_finalize()
     if (__ini_is_initialized == 0)
         return;
     __ini_finalize_errstack();
+    __ini_is_initialized = 0;
 }
 
 INIPARSER_API int __ini_is_initialized = 0;
