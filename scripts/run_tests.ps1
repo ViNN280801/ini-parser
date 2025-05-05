@@ -33,7 +33,7 @@ function Main {
     # Clean build directory
     Remove-Item -Recurse -Force $buildDir
 
-    Write-Host "Building in Release configuration for $Architecture..."
+    Write-Host "Building in Debug configuration for $Architecture..."
     
     # Configure CMake with architecture
     if ($Architecture -eq "x86") {
@@ -43,14 +43,14 @@ function Main {
         cmake $projectRoot -B $buildDir -A x64
     }
     
-    cmake --build $buildDir --config Release --parallel
+    cmake --build $buildDir --config Debug --parallel
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Build failed"
         exit 1
     }
 
     Set-Location $buildDir
-    ctest -C Release --output-on-failure -VV
+    ctest -C Debug --output-on-failure --progress -VV
     $logPath = Join-Path $buildDir "test.log"
     if (Test-Path $logPath) {
         Write-Host "Tests completed. Here is the info from the log file:"

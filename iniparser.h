@@ -94,43 +94,37 @@ extern "C"
         INI_FILE_BAD_FORMAT_LINE, ///< Syntax error at a specific line.
     } ini_error_t;
 
-    static ini_error_t __g_errstack[INI_ERRSTACK_SIZE];
-    static void __g_init_errstack()
-    {
-        memset(__g_errstack, INI_SUCCESS, INI_ERRSTACK_SIZE * sizeof(ini_error_t));
-    }
-    static void __g_clear_errstack()
-    {
-        for (int i = 0; i < INI_ERRSTACK_SIZE; i++)
-            __g_errstack[i] = INI_SUCCESS;
-    }
-    static void __g_add_in_errstack(ini_error_t error)
-    {
-        for (int i = 0; i < INI_ERRSTACK_SIZE; i++)
-            if (__g_errstack[i] == INI_SUCCESS)
-                __g_errstack[i] = error;
-    }
+    /// @brief Common stack of errors for all the modules.
+    INIPARSER_API extern ini_error_t __ini_errstack[INI_ERRSTACK_SIZE];
+
+#if INI_OS_WINDOWS
+    extern CRITICAL_SECTION __ini_errstack_mutex;
+#elif INI_OS_APPLE
+extern dispatch_semaphore_t __ini_errstack_semaphore;
+#else
+extern pthread_mutex_t __ini_errstack_mutex;
+#endif
+
+    /// @brief Private function, initializes the error stack with INI_SUCCESS and initializes the mutex/semaphore.
+    INIPARSER_API void __ini_init_errstack();
+
+    /// @brief Private function, finalizes the error stack and destroys the mutex/semaphore.
+    INIPARSER_API void __ini_finalize_errstack();
+
+    /// @brief Private function, clears the error stack (sets all the errors to INI_SUCCESS).
+    INIPARSER_API void __ini_clear_errstack();
+
+    /// @brief Private function, adds an error to the error stack.
+    INIPARSER_API void __ini_add_in_errstack(ini_error_t error);
 
     /// @brief Private function, returns 1 if `__errstack` contains specified error, otherwise 0.
-    static int __g_has_in_errstack(ini_error_t error)
-    {
-        for (int i = 0; i < INI_ERRSTACK_SIZE; i++)
-            if (__g_errstack[i] == error)
-                return 1;
-        return 0;
-    }
+    INIPARSER_API int __ini_has_in_errstack(ini_error_t error);
 
     /**
      * @brief Checks if there are any errors in the error stack.
      * @return 1 if there were errors in operations, 0 otherwise.
      */
-    static int ini_has_error()
-    {
-        for (int i = 0; i < INI_ERRSTACK_SIZE; i++)
-            if (__g_errstack[i] != INI_SUCCESS)
-                return 1;
-        return 0;
-    }
+    INIPARSER_API int ini_has_error();
 
     typedef struct
     {
@@ -186,6 +180,18 @@ extern "C"
 #endif
     } ini_context_t;
 
+    /// @brief Public function, initializes the INI parser.
+    INIPARSER_API void ini_initialize();
+
+    /// @brief Public function, finalizes the INI parser.
+    INIPARSER_API void ini_finalize();
+
+    /// @brief Private variable, checks if the INI parser is initialized. 1 - initialized, 0 - not initialized.
+    INIPARSER_API extern int __ini_is_initialized;
+
+    /// @brief Public function, checks if the INI parser is initialized. 1 - initialized, 0 - not initialized.
+    INIPARSER_API int ini_is_initialized();
+
     /**
      * @brief Checks if an INI file is valid (exists, readable, and well-formatted).
      * @param filepath Path to the INI file.
@@ -206,6 +212,7 @@ extern "C"
 
     /**
      * @brief Allocates and initializes a new INI context.
+     *        Does not clears the error stack if successful.
      * @return New context (NULL on failure).
      * @note Initializes platform-specific mutex/semaphore.
      */
@@ -213,6 +220,8 @@ extern "C"
 
     /**
      * @brief Frees an INI context and all its resources (sections, keys, mutex).
+     *        Important: The context will be freed and NOT set to NULL.
+     *        Does not clears the error stack if successful.
      * @param ctx Context to free.
      * @return Error details (INI_SUCCESS on success).
      */

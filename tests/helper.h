@@ -22,32 +22,32 @@
 #include <unistd.h>
 #endif
 
-static int __g_exit_code = EXIT_SUCCESS;
+static int __helper_exit_code = EXIT_SUCCESS;
 
-inline static void __g_set_exit_code(int code) { __g_exit_code = code; }
-inline static void __g_reset_exit_code() { __g_exit_code = EXIT_SUCCESS; }
-inline static int __g_get_exit_code() { return __g_exit_code; }
+inline static void __helper_set_exit_code(int code) { __helper_exit_code = code; }
+inline static void __helper_reset_exit_code() { __helper_exit_code = EXIT_SUCCESS; }
+inline static int __helper_get_exit_code() { return __helper_exit_code; }
 
-static FILE *__g_lfd = NULL; // log file descriptor
-char const *__g_log_file_name = "test.log";
+static FILE *__helper_lfd = NULL; // log file descriptor
+char const *__helper_log_file_name = "test.log";
 
-static void __g_init_log_file()
+static void __helper_init_log_file()
 {
-    __g_lfd = fopen(__g_log_file_name, "a");
-    if (!__g_lfd)
+    __helper_lfd = fopen(__helper_log_file_name, "a");
+    if (!__helper_lfd)
     {
         perror("Failed to create log file");
         exit(EXIT_FAILURE);
     }
 }
 
-static void __g_close_log_file()
+static void __helper_close_log_file()
 {
-    if (__g_lfd)
+    if (__helper_lfd)
     {
-        if (fclose(__g_lfd) != 0)
+        if (fclose(__helper_lfd) != 0)
             perror("Failed to close log file");
-        __g_lfd = NULL;
+        __helper_lfd = NULL;
     }
 }
 
@@ -58,11 +58,11 @@ static void print_info(const char *format, ...)
 #ifdef _WIN32
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     SetConsoleTextAttribute(hConsole, FOREGROUND_BLUE | FOREGROUND_INTENSITY);
-    vfprintf_s(__g_lfd, format, args);
+    vfprintf_s(__helper_lfd, format, args);
     SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
 #else
-    fprintf(__g_lfd, "%s[INFO]%s ", COLOR_INFO, COLOR_RESET);
-    vfprintf(__g_lfd, format, args);
+    fprintf(__helper_lfd, "%s[INFO]%s ", COLOR_INFO, COLOR_RESET);
+    vfprintf(__helper_lfd, format, args);
 #endif
     va_end(args);
 }
@@ -74,11 +74,11 @@ static void print_success(const char *format, ...)
 #ifdef _WIN32
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     SetConsoleTextAttribute(hConsole, FOREGROUND_GREEN | FOREGROUND_INTENSITY);
-    vfprintf_s(__g_lfd, format, args);
+    vfprintf_s(__helper_lfd, format, args);
     SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
 #else
-    fprintf(__g_lfd, "%s[SUCCESS]%s ", COLOR_SUCCESS, COLOR_RESET);
-    vfprintf(__g_lfd, format, args);
+    fprintf(__helper_lfd, "%s[SUCCESS]%s ", COLOR_SUCCESS, COLOR_RESET);
+    vfprintf(__helper_lfd, format, args);
 #endif
     va_end(args);
 }
@@ -90,11 +90,11 @@ static void print_error(const char *format, ...)
 #ifdef _WIN32
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_INTENSITY);
-    vfprintf_s(__g_lfd, format, args);
+    vfprintf_s(__helper_lfd, format, args);
     SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
 #else
-    fprintf(__g_lfd, "%s[ERROR]%s ", COLOR_ERROR, COLOR_RESET);
-    vfprintf(__g_lfd, format, args);
+    fprintf(__helper_lfd, "%s[ERROR]%s ", COLOR_ERROR, COLOR_RESET);
+    vfprintf(__helper_lfd, format, args);
 #endif
     va_end(args);
 }
@@ -106,11 +106,11 @@ static void print_warning(const char *format, ...)
 #ifdef _WIN32
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY);
-    vfprintf_s(__g_lfd, format, args);
+    vfprintf_s(__helper_lfd, format, args);
     SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
 #else
-    fprintf(__g_lfd, "%s[WARNING]%s ", COLOR_WARNING, COLOR_RESET);
-    vfprintf(__g_lfd, format, args);
+    fprintf(__helper_lfd, "%s[WARNING]%s ", COLOR_WARNING, COLOR_RESET);
+    vfprintf(__helper_lfd, format, args);
 #endif
     va_end(args);
 }

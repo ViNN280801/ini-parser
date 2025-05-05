@@ -46,6 +46,98 @@ static ini_error_details_t create_error(ini_error_t error, char const *inipath,
         .custommsg = custommsg};
 }
 
+ini_error_t __ini_errstack[INI_ERRSTACK_SIZE];
+
+#if INI_OS_WINDOWS
+CRITICAL_SECTION __ini_errstack_mutex;
+#elif INI_OS_APPLE
+dispatch_semaphore_t __ini_errstack_semaphore;
+#else
+pthread_mutex_t __ini_errstack_mutex;
+#endif
+
+INIPARSER_API void __ini_init_errstack()
+{
+#if INI_OS_WINDOWS
+    InitializeCriticalSection(&__ini_errstack_mutex);
+#elif INI_OS_APPLE
+    __ini_errstack_semaphore = dispatch_semaphore_create(1);
+#else
+    pthread_mutex_init(&__ini_errstack_mutex, NULL);
+#endif
+    memset(__ini_errstack, INI_SUCCESS, INI_ERRSTACK_SIZE * sizeof(ini_error_t));
+}
+
+INIPARSER_API void __ini_finalize_errstack()
+{
+    __ini_clear_errstack();
+#if INI_OS_WINDOWS
+    DeleteCriticalSection(&__ini_errstack_mutex);
+#elif INI_OS_APPLE
+    dispatch_release(__ini_errstack_semaphore);
+#else
+    pthread_mutex_destroy(&__ini_errstack_mutex);
+#endif
+}
+
+INIPARSER_API void __ini_clear_errstack()
+{
+    for (int i = 0; i < INI_ERRSTACK_SIZE; i++)
+        __ini_errstack[i] = INI_SUCCESS;
+}
+
+INIPARSER_API void __ini_add_in_errstack(ini_error_t error)
+{
+// Lock the mutex
+#if INI_OS_WINDOWS
+    EnterCriticalSection(&__ini_errstack_mutex);
+#elif INI_OS_APPLE
+    dispatch_semaphore_wait(__ini_errstack_semaphore, DISPATCH_TIME_FOREVER);
+#else
+    pthread_mutex_lock(&__ini_errstack_mutex);
+#endif
+
+    // ================================== //
+    // ----> Critical section ----------- //
+    // ================================== //
+    for (int i = 0; i < INI_ERRSTACK_SIZE; i++)
+    {
+        if (__ini_errstack[i] == INI_SUCCESS)
+        {
+            __ini_errstack[i] = error;
+            break;
+        }
+    }
+    // ================================== //
+    // ---- End of critical section <---- //
+    // ================================== //
+
+// Unlock the mutex
+#if INI_OS_WINDOWS
+    LeaveCriticalSection(&__ini_errstack_mutex);
+#elif INI_OS_APPLE
+    dispatch_semaphore_signal(__ini_errstack_semaphore);
+#else
+    pthread_mutex_unlock(&__ini_errstack_mutex);
+#endif
+}
+
+INIPARSER_API int __ini_has_in_errstack(ini_error_t error)
+{
+    for (int i = 0; i < INI_ERRSTACK_SIZE; i++)
+        if (__ini_errstack[i] == error)
+            return 1;
+    return 0;
+}
+
+INIPARSER_API int ini_has_error()
+{
+    for (int i = 0; i < INI_ERRSTACK_SIZE; i++)
+        if (__ini_errstack[i] != INI_SUCCESS)
+            return 1;
+    return 0;
+}
+
 INIPARSER_API char const *ini_error_to_string(ini_error_t error)
 {
     switch (error)
@@ -93,11 +185,32 @@ INIPARSER_API char const *ini_error_details_to_string(ini_error_details_t error_
     return buffer;
 }
 
+INIPARSER_API void ini_initialize()
+{
+    // Already initialized
+    if (__ini_is_initialized == 1)
+        return;
+    __ini_init_errstack();
+    __ini_is_initialized = 1;
+}
+
+INIPARSER_API void ini_finalize()
+{
+    // Already finalized
+    if (__ini_is_initialized == 0)
+        return;
+    __ini_finalize_errstack();
+}
+
+INIPARSER_API int __ini_is_initialized = 0;
+
+INIPARSER_API int ini_is_initialized() { return __ini_is_initialized; }
+
 INIPARSER_API ini_error_details_t ini_good(char const *filepath)
 {
     if (!filepath)
     {
-        __g_add_in_errstack(INI_INVALID_ARGUMENT);
+        __ini_add_in_errstack(INI_INVALID_ARGUMENT);
         return create_error(
             INI_INVALID_ARGUMENT,
             filepath,
@@ -112,7 +225,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
 #if INI_OS_WINDOWS
     if (_access(filepath, F_OK) != 0)
     {
-        __g_add_in_errstack(INI_FILE_NOT_FOUND);
+        __ini_add_in_errstack(INI_FILE_NOT_FOUND);
         return create_error(
             INI_FILE_NOT_FOUND,
             filepath,
@@ -123,7 +236,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
     }
     if (_access(filepath, R_OK) != 0)
     {
-        __g_add_in_errstack(INI_FILE_OPEN_FAILED);
+        __ini_add_in_errstack(INI_FILE_OPEN_FAILED);
         return create_error(
             INI_FILE_OPEN_FAILED,
             filepath,
@@ -140,7 +253,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
         // Explicitly check errno for ENOENT (file doesn't exist)
         if (errno == ENOENT)
         {
-            __g_add_in_errstack(INI_FILE_NOT_FOUND);
+            __ini_add_in_errstack(INI_FILE_NOT_FOUND);
             return create_error(
                 INI_FILE_NOT_FOUND,
                 filepath,
@@ -149,7 +262,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
                 __LINE__,
                 "File does not exist");
         }
-        __g_add_in_errstack(INI_FILE_OPEN_FAILED);
+        __ini_add_in_errstack(INI_FILE_OPEN_FAILED);
         return create_error(
             INI_FILE_OPEN_FAILED,
             filepath,
@@ -160,7 +273,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
     }
     if (access(filepath, R_OK) != 0)
     {
-        __g_add_in_errstack(INI_FILE_OPEN_FAILED);
+        __ini_add_in_errstack(INI_FILE_OPEN_FAILED);
         return create_error(
             INI_FILE_OPEN_FAILED,
             filepath,
@@ -176,7 +289,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
     DWORD attrs = GetFileAttributesA(filepath);
     if (attrs == INVALID_FILE_ATTRIBUTES)
     {
-        __g_add_in_errstack(INI_PLATFORM_ERROR);
+        __ini_add_in_errstack(INI_PLATFORM_ERROR);
         return create_error(
             INI_PLATFORM_ERROR,
             filepath,
@@ -187,7 +300,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
     }
     if (attrs & FILE_ATTRIBUTE_DIRECTORY)
     {
-        __g_add_in_errstack(INI_FILE_IS_DIR);
+        __ini_add_in_errstack(INI_FILE_IS_DIR);
         return create_error(
             INI_FILE_IS_DIR,
             filepath,
@@ -199,7 +312,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
 #else
     if (stat(filepath, &statbuf) != 0)
     {
-        __g_add_in_errstack(INI_PLATFORM_ERROR);
+        __ini_add_in_errstack(INI_PLATFORM_ERROR);
         return create_error(
             INI_PLATFORM_ERROR,
             filepath,
@@ -210,7 +323,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
     }
     if (S_ISDIR(statbuf.st_mode))
     {
-        __g_add_in_errstack(INI_FILE_IS_DIR);
+        __ini_add_in_errstack(INI_FILE_IS_DIR);
         return create_error(
             INI_FILE_IS_DIR,
             filepath,
@@ -226,7 +339,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
     FILE *file;
     if (fopen_s(&file, filepath, "rb") != 0)
     {
-        __g_add_in_errstack(INI_FILE_OPEN_FAILED);
+        __ini_add_in_errstack(INI_FILE_OPEN_FAILED);
         return create_error(
             INI_FILE_OPEN_FAILED,
             filepath,
@@ -239,7 +352,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
     FILE *file = fopen(filepath, "rb");
     if (!file)
     {
-        __g_add_in_errstack(INI_FILE_OPEN_FAILED);
+        __ini_add_in_errstack(INI_FILE_OPEN_FAILED);
         return create_error(
             INI_FILE_OPEN_FAILED,
             filepath,
@@ -254,7 +367,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
     {
         if (fclose(file) != 0)
         {
-            __g_add_in_errstack(INI_CLOSE_FAILED);
+            __ini_add_in_errstack(INI_CLOSE_FAILED);
             return create_error(
                 INI_CLOSE_FAILED,
                 filepath,
@@ -264,7 +377,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
                 "Failed to close file after size check");
         }
 
-        __g_add_in_errstack(INI_PLATFORM_ERROR);
+        __ini_add_in_errstack(INI_PLATFORM_ERROR);
         return create_error(
             INI_PLATFORM_ERROR,
             filepath,
@@ -277,7 +390,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
     long size = ftell(file);
     if (fclose(file) != 0)
     {
-        __g_add_in_errstack(INI_CLOSE_FAILED);
+        __ini_add_in_errstack(INI_CLOSE_FAILED);
         return create_error(
             INI_CLOSE_FAILED,
             filepath,
@@ -289,7 +402,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
 
     if (size == 0)
     {
-        __g_add_in_errstack(INI_FILE_EMPTY);
+        __ini_add_in_errstack(INI_FILE_EMPTY);
         return create_error(
             INI_FILE_EMPTY,
             filepath,
@@ -303,7 +416,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
 #if INI_OS_WINDOWS
     if (fopen_s(&file, filepath, "r") != 0)
     {
-        __g_add_in_errstack(INI_FILE_OPEN_FAILED);
+        __ini_add_in_errstack(INI_FILE_OPEN_FAILED);
         return create_error(
             INI_FILE_OPEN_FAILED,
             filepath,
@@ -316,7 +429,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
     file = fopen(filepath, "r");
     if (!file)
     {
-        __g_add_in_errstack(INI_FILE_OPEN_FAILED);
+        __ini_add_in_errstack(INI_FILE_OPEN_FAILED);
         return create_error(
             INI_FILE_OPEN_FAILED,
             filepath,
@@ -350,7 +463,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
             {
                 if (fclose(file) != 0)
                 {
-                    __g_add_in_errstack(INI_CLOSE_FAILED);
+                    __ini_add_in_errstack(INI_CLOSE_FAILED);
                     return create_error(
                         INI_CLOSE_FAILED,
                         filepath,
@@ -360,7 +473,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
                         "Failed to close file after validation");
                 }
 
-                __g_add_in_errstack(INI_FILE_BAD_FORMAT);
+                __ini_add_in_errstack(INI_FILE_BAD_FORMAT);
                 return create_error(
                     INI_FILE_BAD_FORMAT,
                     filepath,
@@ -379,7 +492,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
             {
                 if (fclose(file) != 0)
                 {
-                    __g_add_in_errstack(INI_CLOSE_FAILED);
+                    __ini_add_in_errstack(INI_CLOSE_FAILED);
                     return create_error(
                         INI_CLOSE_FAILED,
                         filepath,
@@ -389,7 +502,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
                         "Failed to close file after validation");
                 }
 
-                __g_add_in_errstack(INI_FILE_BAD_FORMAT);
+                __ini_add_in_errstack(INI_FILE_BAD_FORMAT);
                 return create_error(
                     INI_FILE_BAD_FORMAT,
                     filepath,
@@ -413,7 +526,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
                 {
                     if (fclose(file) != 0)
                     {
-                        __g_add_in_errstack(INI_CLOSE_FAILED);
+                        __ini_add_in_errstack(INI_CLOSE_FAILED);
                         return create_error(
                             INI_CLOSE_FAILED,
                             filepath,
@@ -422,7 +535,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
                             __LINE__,
                             "Failed to close file after validation");
                     }
-                    __g_add_in_errstack(INI_FILE_BAD_FORMAT);
+                    __ini_add_in_errstack(INI_FILE_BAD_FORMAT);
                     return create_error(
                         INI_FILE_BAD_FORMAT,
                         filepath,
@@ -436,7 +549,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
             {
                 if (fclose(file) != 0)
                 {
-                    __g_add_in_errstack(INI_CLOSE_FAILED);
+                    __ini_add_in_errstack(INI_CLOSE_FAILED);
                     return create_error(
                         INI_CLOSE_FAILED,
                         filepath,
@@ -445,7 +558,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
                         __LINE__,
                         "Failed to close file after validation");
                 }
-                __g_add_in_errstack(INI_FILE_BAD_FORMAT);
+                __ini_add_in_errstack(INI_FILE_BAD_FORMAT);
                 return create_error(
                     INI_FILE_BAD_FORMAT,
                     filepath,
@@ -459,7 +572,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
         {
             if (fclose(file) != 0)
             {
-                __g_add_in_errstack(INI_CLOSE_FAILED);
+                __ini_add_in_errstack(INI_CLOSE_FAILED);
                 return create_error(
                     INI_CLOSE_FAILED,
                     filepath,
@@ -468,7 +581,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
                     __LINE__,
                     "Failed to close file after validation");
             }
-            __g_add_in_errstack(INI_FILE_BAD_FORMAT);
+            __ini_add_in_errstack(INI_FILE_BAD_FORMAT);
             return create_error(
                 INI_FILE_BAD_FORMAT,
                 filepath,
@@ -480,7 +593,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
 
         if (strlen(trimmed) >= INI_LINE_MAX - 1)
         {
-            __g_add_in_errstack(INI_FILE_BAD_FORMAT);
+            __ini_add_in_errstack(INI_FILE_BAD_FORMAT);
             return create_error(
                 INI_FILE_BAD_FORMAT,
                 filepath,
@@ -493,7 +606,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
 
     if (fclose(file) != 0)
     {
-        __g_add_in_errstack(INI_CLOSE_FAILED);
+        __ini_add_in_errstack(INI_CLOSE_FAILED);
         return create_error(
             INI_CLOSE_FAILED,
             filepath,
@@ -503,7 +616,7 @@ INIPARSER_API ini_error_details_t ini_good(char const *filepath)
             "Failed to close file after validation");
     }
 
-    __g_clear_errstack();
+    __ini_clear_errstack();
     return create_error(
         INI_SUCCESS,
         filepath,
@@ -517,7 +630,7 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
 {
     if (!filepath)
     {
-        __g_add_in_errstack(INI_INVALID_ARGUMENT);
+        __ini_add_in_errstack(INI_INVALID_ARGUMENT);
         return create_error(
             INI_INVALID_ARGUMENT,
             filepath,
@@ -532,7 +645,7 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
         ctx = ini_create_context();
         if (!ctx)
         {
-            __g_add_in_errstack(INI_MEMORY_ERROR);
+            __ini_add_in_errstack(INI_MEMORY_ERROR);
             return create_error(
                 INI_MEMORY_ERROR,
                 filepath,
@@ -550,7 +663,7 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
         ctx = ini_create_context();
         if (!ctx)
         {
-            __g_add_in_errstack(INI_MEMORY_ERROR);
+            __ini_add_in_errstack(INI_MEMORY_ERROR);
             return create_error(
                 INI_MEMORY_ERROR,
                 filepath,
@@ -576,7 +689,7 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
 #if INI_OS_WINDOWS
     if (fopen_s(&file, filepath, "r") != 0)
     {
-        __g_add_in_errstack(INI_FILE_OPEN_FAILED);
+        __ini_add_in_errstack(INI_FILE_OPEN_FAILED);
         err = create_error(
             INI_FILE_OPEN_FAILED,
             filepath,
@@ -590,7 +703,7 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
     file = fopen(filepath, "r");
     if (!file)
     {
-        __g_add_in_errstack(INI_FILE_OPEN_FAILED);
+        __ini_add_in_errstack(INI_FILE_OPEN_FAILED);
         err = create_error(
             INI_FILE_OPEN_FAILED,
             filepath,
@@ -624,7 +737,7 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
             {
                 if (fclose(file) != 0)
                 {
-                    __g_add_in_errstack(INI_CLOSE_FAILED);
+                    __ini_add_in_errstack(INI_CLOSE_FAILED);
                     err = create_error(
                         INI_CLOSE_FAILED,
                         filepath,
@@ -634,7 +747,7 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
                         "Failed to close file");
                     goto unlock;
                 }
-                __g_add_in_errstack(INI_FILE_BAD_FORMAT);
+                __ini_add_in_errstack(INI_FILE_BAD_FORMAT);
                 err = create_error(
                     INI_FILE_BAD_FORMAT,
                     filepath,
@@ -668,7 +781,7 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
                 {
                     if (fclose(file) != 0)
                     {
-                        __g_add_in_errstack(INI_CLOSE_FAILED);
+                        __ini_add_in_errstack(INI_CLOSE_FAILED);
                         err = create_error(
                             INI_CLOSE_FAILED,
                             filepath,
@@ -678,7 +791,7 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
                             "Failed to close file");
                         goto unlock;
                     }
-                    __g_add_in_errstack(INI_SECTION_NOT_FOUND);
+                    __ini_add_in_errstack(INI_SECTION_NOT_FOUND);
                     err = create_error(
                         INI_SECTION_NOT_FOUND,
                         filepath,
@@ -695,7 +808,7 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
                 {
                     if (fclose(file) != 0)
                     {
-                        __g_add_in_errstack(INI_CLOSE_FAILED);
+                        __ini_add_in_errstack(INI_CLOSE_FAILED);
                         err = create_error(
                             INI_CLOSE_FAILED,
                             filepath,
@@ -705,7 +818,7 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
                             "Failed to close file");
                         goto unlock;
                     }
-                    __g_add_in_errstack(INI_MEMORY_ERROR);
+                    __ini_add_in_errstack(INI_MEMORY_ERROR);
                     err = create_error(
                         INI_MEMORY_ERROR,
                         filepath,
@@ -730,7 +843,7 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
                 {
                     if (fclose(file) != 0)
                     {
-                        __g_add_in_errstack(INI_CLOSE_FAILED);
+                        __ini_add_in_errstack(INI_CLOSE_FAILED);
                         err = create_error(
                             INI_CLOSE_FAILED,
                             filepath,
@@ -740,7 +853,7 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
                             "Failed to close file");
                         goto unlock;
                     }
-                    __g_add_in_errstack(INI_MEMORY_ERROR);
+                    __ini_add_in_errstack(INI_MEMORY_ERROR);
                     err = create_error(
                         INI_MEMORY_ERROR,
                         filepath,
@@ -794,7 +907,7 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
             {
                 if (fclose(file) != 0)
                 {
-                    __g_add_in_errstack(INI_CLOSE_FAILED);
+                    __ini_add_in_errstack(INI_CLOSE_FAILED);
                     err = create_error(
                         INI_CLOSE_FAILED,
                         filepath,
@@ -804,7 +917,7 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
                         "Failed to close file");
                     goto unlock;
                 }
-                __g_add_in_errstack(INI_MEMORY_ERROR);
+                __ini_add_in_errstack(INI_MEMORY_ERROR);
                 err = create_error(
                     INI_MEMORY_ERROR,
                     filepath,
@@ -822,7 +935,7 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
 
     if (fclose(file) != 0)
     {
-        __g_add_in_errstack(INI_CLOSE_FAILED);
+        __ini_add_in_errstack(INI_CLOSE_FAILED);
         err = create_error(
             INI_CLOSE_FAILED,
             filepath,
@@ -834,7 +947,7 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
     }
 
     goto unlock;
-    __g_clear_errstack();
+    __ini_clear_errstack();
     return create_error(
         INI_SUCCESS,
         filepath,
@@ -882,7 +995,7 @@ INIPARSER_API ini_error_details_t ini_free(ini_context_t *ctx)
 {
     if (!ctx)
     {
-        __g_add_in_errstack(INI_INVALID_ARGUMENT);
+        __ini_add_in_errstack(INI_INVALID_ARGUMENT);
         return create_error(
             INI_INVALID_ARGUMENT,
             NULL,
@@ -940,7 +1053,6 @@ INIPARSER_API ini_error_details_t ini_free(ini_context_t *ctx)
     pthread_mutex_destroy(&ctx->mutex);
 #endif
 
-    __g_clear_errstack();
     return create_error(
         INI_SUCCESS,
         NULL,
@@ -954,7 +1066,7 @@ INIPARSER_API ini_error_details_t ini_get_value(ini_context_t const *ctx, char c
 {
     if (!ctx)
     {
-        __g_add_in_errstack(INI_INVALID_ARGUMENT);
+        __ini_add_in_errstack(INI_INVALID_ARGUMENT);
         return create_error(
             INI_INVALID_ARGUMENT,
             NULL,
@@ -966,7 +1078,7 @@ INIPARSER_API ini_error_details_t ini_get_value(ini_context_t const *ctx, char c
 
     if (!section)
     {
-        __g_add_in_errstack(INI_INVALID_ARGUMENT);
+        __ini_add_in_errstack(INI_INVALID_ARGUMENT);
         return create_error(
             INI_INVALID_ARGUMENT,
             NULL,
@@ -978,7 +1090,7 @@ INIPARSER_API ini_error_details_t ini_get_value(ini_context_t const *ctx, char c
 
     if (!key)
     {
-        __g_add_in_errstack(INI_INVALID_ARGUMENT);
+        __ini_add_in_errstack(INI_INVALID_ARGUMENT);
         return create_error(
             INI_INVALID_ARGUMENT,
             NULL,
@@ -990,7 +1102,7 @@ INIPARSER_API ini_error_details_t ini_get_value(ini_context_t const *ctx, char c
 
     if (!value)
     {
-        __g_add_in_errstack(INI_INVALID_ARGUMENT);
+        __ini_add_in_errstack(INI_INVALID_ARGUMENT);
         return create_error(
             INI_INVALID_ARGUMENT,
             NULL,
@@ -1030,7 +1142,7 @@ INIPARSER_API ini_error_details_t ini_get_value(ini_context_t const *ctx, char c
 #else
         pthread_mutex_unlock(&((ini_context_t *)ctx)->mutex);
 #endif
-        __g_add_in_errstack(INI_SECTION_NOT_FOUND);
+        __ini_add_in_errstack(INI_SECTION_NOT_FOUND);
         return create_error(
             INI_SECTION_NOT_FOUND,
             NULL,
@@ -1056,7 +1168,7 @@ INIPARSER_API ini_error_details_t ini_get_value(ini_context_t const *ctx, char c
 #else
                 pthread_mutex_unlock(&((ini_context_t *)ctx)->mutex);
 #endif
-                __g_add_in_errstack(INI_MEMORY_ERROR);
+                __ini_add_in_errstack(INI_MEMORY_ERROR);
                 return create_error(
                     INI_MEMORY_ERROR,
                     NULL,
@@ -1073,7 +1185,7 @@ INIPARSER_API ini_error_details_t ini_get_value(ini_context_t const *ctx, char c
 #else
             pthread_mutex_unlock(&((ini_context_t *)ctx)->mutex);
 #endif
-            __g_clear_errstack();
+            __ini_clear_errstack();
             return create_error(
                 INI_SUCCESS,
                 NULL,
@@ -1093,7 +1205,7 @@ INIPARSER_API ini_error_details_t ini_get_value(ini_context_t const *ctx, char c
 #else
     pthread_mutex_unlock(&((ini_context_t *)ctx)->mutex);
 #endif
-    __g_add_in_errstack(INI_KEY_NOT_FOUND);
+    __ini_add_in_errstack(INI_KEY_NOT_FOUND);
     return create_error(
         INI_KEY_NOT_FOUND,
         NULL,
@@ -1109,7 +1221,7 @@ INIPARSER_API ini_error_details_t ini_print(ini_context_t const *ctx)
     {
         if (printf("Error: NULL context\n") < 0)
         {
-            __g_add_in_errstack(INI_PRINT_ERROR);
+            __ini_add_in_errstack(INI_PRINT_ERROR);
             return create_error(
                 INI_PRINT_ERROR,
                 NULL,
@@ -1119,7 +1231,7 @@ INIPARSER_API ini_error_details_t ini_print(ini_context_t const *ctx)
                 "Failed to print error");
         }
 
-        __g_add_in_errstack(INI_INVALID_ARGUMENT);
+        __ini_add_in_errstack(INI_INVALID_ARGUMENT);
         return create_error(
             INI_INVALID_ARGUMENT,
             NULL,
@@ -1134,7 +1246,7 @@ INIPARSER_API ini_error_details_t ini_print(ini_context_t const *ctx)
         ini_section_t const *section = &ctx->sections[i];
         if (printf("[%s]\n", section->name) < 0)
         {
-            __g_add_in_errstack(INI_PRINT_ERROR);
+            __ini_add_in_errstack(INI_PRINT_ERROR);
             return create_error(
                 INI_PRINT_ERROR,
                 NULL,
@@ -1149,7 +1261,7 @@ INIPARSER_API ini_error_details_t ini_print(ini_context_t const *ctx)
         {
             if (printf("%s = %s\n", section->pairs[j].key, section->pairs[j].value) < 0)
             {
-                __g_add_in_errstack(INI_PRINT_ERROR);
+                __ini_add_in_errstack(INI_PRINT_ERROR);
                 return create_error(
                     INI_PRINT_ERROR,
                     NULL,
@@ -1166,7 +1278,7 @@ INIPARSER_API ini_error_details_t ini_print(ini_context_t const *ctx)
             ini_section_t const *subsection = &section->subsections[k];
             if (printf("\n[%s.%s]\n", section->name, subsection->name) < 0)
             {
-                __g_add_in_errstack(INI_PRINT_ERROR);
+                __ini_add_in_errstack(INI_PRINT_ERROR);
                 return create_error(
                     INI_PRINT_ERROR,
                     NULL,
@@ -1181,7 +1293,7 @@ INIPARSER_API ini_error_details_t ini_print(ini_context_t const *ctx)
             {
                 if (printf("%s = %s\n", subsection->pairs[l].key, subsection->pairs[l].value) < 0)
                 {
-                    __g_add_in_errstack(INI_PRINT_ERROR);
+                    __ini_add_in_errstack(INI_PRINT_ERROR);
                     return create_error(
                         INI_PRINT_ERROR,
                         NULL,
@@ -1195,7 +1307,7 @@ INIPARSER_API ini_error_details_t ini_print(ini_context_t const *ctx)
 
         if (printf("\n") < 0)
         {
-            __g_add_in_errstack(INI_PRINT_ERROR);
+            __ini_add_in_errstack(INI_PRINT_ERROR);
             return create_error(
                 INI_PRINT_ERROR,
                 NULL,
@@ -1219,7 +1331,7 @@ INIPARSER_API ini_error_details_t __INI_MUTEX_LOCK(ini_context_t *ctx)
 {
     if (!ctx)
     {
-        __g_add_in_errstack(INI_INVALID_ARGUMENT);
+        __ini_add_in_errstack(INI_INVALID_ARGUMENT);
         create_error(INI_INVALID_ARGUMENT, NULL, 0, __FILE__, __LINE__, "Context is NULL");
     }
 
@@ -1231,7 +1343,7 @@ INIPARSER_API ini_error_details_t __INI_MUTEX_LOCK(ini_context_t *ctx)
     pthread_mutex_lock(&ctx->mutex);
 #endif
 
-    __g_clear_errstack();
+    __ini_clear_errstack();
     return create_error(INI_SUCCESS, NULL, 0, __FILE__, __LINE__, "Mutex locked successfully");
 }
 
@@ -1239,7 +1351,7 @@ INIPARSER_API ini_error_details_t __INI_MUTEX_UNLOCK(ini_context_t *ctx)
 {
     if (!ctx)
     {
-        __g_add_in_errstack(INI_INVALID_ARGUMENT);
+        __ini_add_in_errstack(INI_INVALID_ARGUMENT);
         return create_error(INI_INVALID_ARGUMENT, NULL, 0, __FILE__, __LINE__, "Context is NULL");
     }
 
@@ -1251,6 +1363,6 @@ INIPARSER_API ini_error_details_t __INI_MUTEX_UNLOCK(ini_context_t *ctx)
     pthread_mutex_unlock(&ctx->mutex);
 #endif
 
-    __g_clear_errstack();
+    __ini_clear_errstack();
     return create_error(INI_SUCCESS, NULL, 0, __FILE__, __LINE__, "Mutex unlocked successfully");
 }

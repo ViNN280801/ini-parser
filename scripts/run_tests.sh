@@ -61,7 +61,7 @@ if [ "$ARCH" = "x86" ]; then
     CMAKE_OPTS="-DCMAKE_C_FLAGS=-m32 -DCMAKE_CXX_FLAGS=-m32"
 fi
 
-cmake .. -DCMAKE_BUILD_TYPE=Release -DINIPARSER_TESTS=ON $CMAKE_OPTS || {
+cmake .. -DCMAKE_BUILD_TYPE=Debug -DINIPARSER_TESTS=ON $CMAKE_OPTS || {
     echo "CMake configuration failed!" >&2
     exit 1
 }
@@ -85,7 +85,7 @@ make -j$NUM_CORES || {
 
 # Run tests
 echo -e "\n=== Running tests ==="
-ctest -C Release --output-on-failure -VV || {
+ctest -C Debug --output-on-failure --progress -VV || {
     echo "Some tests failed!" >&2
     exit 1
 }
