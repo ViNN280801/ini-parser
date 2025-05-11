@@ -15,7 +15,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Cache dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~\AppData\Local\Temp\vcpkg
           key: ${{ runner.os }}-windows64-deps-${{ hashFiles('**/CMakeLists.txt') }}
