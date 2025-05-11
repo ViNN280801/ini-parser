@@ -577,6 +577,7 @@ int main(int argc, char *argv[])
     test_corrupt_files();
 
     ini_finalize();
+    print_success("All stress tests passed!\n\n");
     __helper_close_log_file();
     return ini_has_error();
 }
