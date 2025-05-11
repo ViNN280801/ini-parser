@@ -12,7 +12,7 @@
 
 #if INI_OS_WINDOWS
 #include <windows.h>
-#elif INI_OS_UNIX || INI_OS_MACOS
+#elif INI_OS_UNIX || INI_OS_APPLE
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>

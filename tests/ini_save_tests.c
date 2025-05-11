@@ -9,12 +9,14 @@
 
 #if INI_OS_WINDOWS
 #include <windows.h>
-#elif INI_OS_UNIX || INI_OS_MACOS
+#elif INI_OS_UNIX || INI_OS_APPLE
 #include <unistd.h>
 #endif
 
 #include "helper.h"
 #include "iniparser.h"
+
+#define TEST_DIR "test_dir"
 
 #define TEST_FILE "test_save.ini"
 #define TEST_FILE_LOAD "test_load.ini"
@@ -435,11 +437,11 @@ void test_save_unicode()
     print_success("test_save_unicode passed\n");
 }
 
-#if INI_OS_UNIX
+#if INI_OS_LINUX
 void test_save_no_write_permission()
 {
     // Create a directory
-    create_test_dir("test_dir");
+    create_test_dir(TEST_DIR);
 
     // Create a file in that directory
     create_test_file(TEST_FILE_LOAD, "[section]\nkey=value\n");
@@ -452,18 +454,18 @@ void test_save_no_write_permission()
     assert(err.error == INI_SUCCESS);
 
     // Remove write permissions from the directory
-    chmod("test_dir", 0555); // r-xr-xr-x
+    chmod(TEST_DIR, 0555); // r-xr-xr-x
 
     // Try to save to a file in that directory
     err = ini_save(ctx, "test_dir/test_no_perm.ini");
     assert(err.error == INI_FILE_OPEN_FAILED);
 
     // Restore permissions and clean up
-    chmod("test_dir", 0777); // rwxrwxrwx
+    chmod(TEST_DIR, 0777); // rwxrwxrwx
     err = ini_free(ctx);
     assert(err.error == INI_SUCCESS);
     remove_test_file(TEST_FILE_LOAD);
-    remove_test_dir("test_dir");
+    remove_test_dir(TEST_DIR);
     print_success("test_save_no_write_permission passed\n");
 }
 #endif
@@ -569,7 +571,7 @@ void test_save_to_existing_file()
 void test_save_to_directory()
 {
     // Create a directory
-    create_test_dir("test_dir");
+    create_test_dir(TEST_DIR);
 
     // Create test data
     create_test_file(TEST_FILE_LOAD, "[section]\nkey=value\n");
@@ -582,13 +584,13 @@ void test_save_to_directory()
     assert(err.error == INI_SUCCESS);
 
     // Try to save to a directory
-    err = ini_save(ctx, "test_dir");
+    err = ini_save(ctx, TEST_DIR);
     assert(err.error == INI_FILE_OPEN_FAILED);
 
     err = ini_free(ctx);
     assert(err.error == INI_SUCCESS);
     remove_test_file(TEST_FILE_LOAD);
-    remove_test_dir("test_dir");
+    remove_test_dir(TEST_DIR);
     print_success("test_save_to_directory passed\n");
 }
 
@@ -608,7 +610,7 @@ int main()
     test_save_to_existing_file();
     test_save_to_directory();
 
-#if INI_OS_UNIX
+#if INI_OS_LINUX
     test_save_no_write_permission();
 #endif
 

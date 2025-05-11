@@ -9,8 +9,7 @@
 
 #if INI_OS_WINDOWS
 #include <windows.h>
-#elif INI_OS_UNIX || INI_OS_MACOS
-#include <sys/stat.h> // For chmod() function
+#elif INI_OS_UNIX || INI_OS_APPLE
 #include <unistd.h>
 #endif
 
@@ -440,7 +439,7 @@ void test_save_to_directory()
     print_success("test_save_to_directory passed\n");
 }
 
-#if INI_OS_UNIX
+#if INI_OS_LINUX
 void test_save_no_write_permission()
 {
     // Create a directory
@@ -603,7 +602,7 @@ int main()
     test_save_to_directory();
     test_add_section_to_existing_file();
 
-#if INI_OS_UNIX
+#if INI_OS_LINUX
     test_save_no_write_permission();
 #endif
 
