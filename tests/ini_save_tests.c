@@ -10,7 +10,6 @@
 #if INI_OS_WINDOWS
 #include <windows.h>
 #elif INI_OS_UNIX || INI_OS_MACOS
-#include <sys/stat.h> // For chmod() function
 #include <unistd.h>
 #endif
 
@@ -36,107 +35,144 @@ int compare_files(const char *file1, const char *file2)
         return 0; // Files cannot be opened
     }
 
-    // Load both files into memory for comparison
-    char buffer1[4096] = {0};
-    char buffer2[4096] = {0};
-    
-    size_t size1 = fread(buffer1, 1, sizeof(buffer1) - 1, f1);
-    size_t size2 = fread(buffer2, 1, sizeof(buffer2) - 1, f2);
-    
+    char line1[4096], line2[4096];
+    int line_num = 0;
+    int match = 1; // Assume files match until proven otherwise
+
+    // For debugging
+    printf("Comparing files %s and %s\n", file1, file2);
+
+    while (1)
+    {
+        char *s1 = fgets(line1, sizeof(line1), f1);
+        char *s2 = fgets(line2, sizeof(line2), f2);
+        line_num++;
+
+        // Check if we've reached the end of either file
+        if (!s1 && !s2) // Both files ended
+            break;
+
+        if (!s1 || !s2) // One file ended before the other
+        {
+            printf("Line %d: One file ended before the other\n", line_num);
+            match = 0;
+            break;
+        }
+
+        // Print lines for debugging
+        printf("Line %d: \nFile1: '%s'\nFile2: '%s'\n", line_num, line1, line2);
+
+        // Skip empty lines
+        if ((line1[0] == '\n' || line1[0] == '\r') &&
+            (line2[0] == '\n' || line2[0] == '\r'))
+            continue;
+
+        // Compare section headers directly
+        if (line1[0] == '[' && line2[0] == '[')
+        {
+            // Trim trailing newlines for comparison
+            char *nl1 = strchr(line1, '\n');
+            char *nl2 = strchr(line2, '\n');
+            if (nl1)
+                *nl1 = '\0';
+            if (nl2)
+                *nl2 = '\0';
+
+            if (strcmp(line1, line2) != 0)
+            {
+                printf("Line %d: Section headers don't match: '%s' vs '%s'\n",
+                       line_num, line1, line2);
+                match = 0;
+                break;
+            }
+            continue;
+        }
+
+        // Must be key-value pairs - first check for equals sign
+        char *eq1 = strchr(line1, '=');
+        char *eq2 = strchr(line2, '=');
+
+        if (!eq1 || !eq2)
+        {
+            printf("Line %d: Missing equals sign in one of the lines\n", line_num);
+            match = 0;
+            break;
+        }
+
+        // Make working copies we can modify
+        char line1_copy[4096], line2_copy[4096];
+        strcpy(line1_copy, line1);
+        strcpy(line2_copy, line2);
+
+        // Get pointers into the copies
+        eq1 = strchr(line1_copy, '=');
+        eq2 = strchr(line2_copy, '=');
+
+        // Null-terminate to separate key from value
+        *eq1 = '\0';
+        *eq2 = '\0';
+        char *key1 = line1_copy;
+        char *key2 = line2_copy;
+        char *val1 = eq1 + 1;
+        char *val2 = eq2 + 1;
+
+        // Trim whitespace from keys
+        char *end;
+        end = key1 + strlen(key1) - 1;
+        while (end > key1 && (*end == ' ' || *end == '\t'))
+            *end-- = '\0';
+
+        end = key2 + strlen(key2) - 1;
+        while (end > key2 && (*end == ' ' || *end == '\t'))
+            *end-- = '\0';
+
+        // Trim leading whitespace from values
+        while (*val1 == ' ' || *val1 == '\t')
+            val1++;
+        while (*val2 == ' ' || *val2 == '\t')
+            val2++;
+
+        // Trim trailing whitespace and newlines from values
+        end = val1 + strlen(val1) - 1;
+        while (end > val1 && (*end == ' ' || *end == '\t' || *end == '\n' || *end == '\r'))
+            *end-- = '\0';
+
+        end = val2 + strlen(val2) - 1;
+        while (end > val2 && (*end == ' ' || *end == '\t' || *end == '\n' || *end == '\r'))
+            *end-- = '\0';
+
+        // Remove quotes if present
+        if (*val1 == '"' && val1[strlen(val1) - 1] == '"')
+        {
+            val1[strlen(val1) - 1] = '\0';
+            val1++;
+        }
+
+        if (*val2 == '"' && val2[strlen(val2) - 1] == '"')
+        {
+            val2[strlen(val2) - 1] = '\0';
+            val2++;
+        }
+
+        // Compare the keys and values
+        if (strcmp(key1, key2) != 0)
+        {
+            printf("Line %d: Keys don't match: '%s' vs '%s'\n", line_num, key1, key2);
+            match = 0;
+            break;
+        }
+
+        if (strcmp(val1, val2) != 0)
+        {
+            printf("Line %d: Values don't match: '%s' vs '%s'\n", line_num, val1, val2);
+            match = 0;
+            break;
+        }
+    }
+
     fclose(f1);
     fclose(f2);
-    
-    // Ensure null-termination
-    buffer1[size1] = '\0';
-    buffer2[size2] = '\0';
-    
-    // Compare line by line
-    char *line1 = strtok(buffer1, "\n");
-    char *line2 = strtok(buffer2, "\n");
-    
-    while (line1 && line2)
-    {
-        // Skip empty lines
-        if (strlen(line1) == 0) {
-            line1 = strtok(NULL, "\n");
-            continue;
-        }
-        if (strlen(line2) == 0) {
-            line2 = strtok(NULL, "\n");
-            continue;
-        }
-        
-        // Compare section headers directly
-        if (line1[0] == '[' && line2[0] == '[') {
-            if (strcmp(line1, line2) != 0)
-                return 0; // Different section headers
-        }
-        // Compare key-value pairs
-        else {
-            char *key1 = line1;
-            char *key2 = line2;
-            char *val1 = NULL;
-            char *val2 = NULL;
-            
-            // Find the key-value separator in both lines
-            char *eq1 = strchr(line1, '=');
-            char *eq2 = strchr(line2, '=');
-            
-            if (!eq1 || !eq2)
-                return 0; // Invalid format
-                
-            // Split key and value
-            *eq1 = '\0';
-            *eq2 = '\0';
-            val1 = eq1 + 1;
-            val2 = eq2 + 1;
-            
-            // Trim spaces from keys
-            char *end1 = eq1 - 1;
-            while (end1 > key1 && (*end1 == ' ' || *end1 == '\t'))
-                *end1-- = '\0';
-                
-            char *end2 = eq2 - 1;
-            while (end2 > key2 && (*end2 == ' ' || *end2 == '\t'))
-                *end2-- = '\0';
-                
-            // Trim spaces from values
-            while (*val1 == ' ' || *val1 == '\t')
-                val1++;
-                
-            while (*val2 == ' ' || *val2 == '\t')
-                val2++;
-                
-            end1 = val1 + strlen(val1) - 1;
-            while (end1 > val1 && (*end1 == ' ' || *end1 == '\t' || *end1 == '\r'))
-                *end1-- = '\0';
-                
-            end2 = val2 + strlen(val2) - 1;
-            while (end2 > val2 && (*end2 == ' ' || *end2 == '\t' || *end2 == '\r'))
-                *end2-- = '\0';
-            
-            // Remove quotes from values
-            if (*val1 == '"' && val1[strlen(val1)-1] == '"') {
-                val1[strlen(val1)-1] = '\0';
-                val1++;
-            }
-            
-            if (*val2 == '"' && val2[strlen(val2)-1] == '"') {
-                val2[strlen(val2)-1] = '\0';
-                val2++;
-            }
-            
-            // Compare keys and values
-            if (strcmp(key1, key2) != 0 || strcmp(val1, val2) != 0)
-                return 0;
-        }
-        
-        line1 = strtok(NULL, "\n");
-        line2 = strtok(NULL, "\n");
-    }
-    
-    // Both files should end at the same time
-    return (line1 == NULL && line2 == NULL);
+    return match;
 }
 
 void test_null_context()

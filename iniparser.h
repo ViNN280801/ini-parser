@@ -4,42 +4,42 @@
 // ==================== Platform checks ====================
 /// @link https://stackoverflow.com/questions/5919996/how-to-detect-reliably-mac-os-x-ios-linux-windows-in-c-preprocessor
 #if defined(_WIN32) || defined(_WIN64)
-#define INI_OS_WINDOWS 1
-#define INI_OS_APPLE 0
-#define INI_OS_UNIX 0
+    #define INI_OS_WINDOWS 1
+    #define INI_OS_APPLE 0
+    #define INI_OS_UNIX 0
 #elif __APPLE__
-#include <TargetConditionals.h>
-#if TARGET_IPHONE_SIMULATOR
-// iOS, tvOS, or watchOS Simulator
-#define INI_OS_WINDOWS 0
-#define INI_OS_APPLE 1
-#define INI_OS_UNIX 0
-#elif TARGET_OS_MACCATALYST
-// Mac's Catalyst (ports iOS API into Mac, like UIKit).
-#define INI_OS_WINDOWS 0
-#define INI_OS_APPLE 1
-#define INI_OS_UNIX 0
-#elif TARGET_OS_IPHONE
-// iOS, tvOS, or watchOS device
-#define INI_OS_WINDOWS 0
-#define INI_OS_APPLE 1
-#define INI_OS_UNIX 0
-#elif TARGET_OS_MAC
-// Other kinds of Apple platforms
-#define INI_OS_WINDOWS 0
-#define INI_OS_APPLE 1
-#define INI_OS_UNIX 0
-#else
-#error "Unknown Apple platform"
-#endif
+    #include <TargetConditionals.h>
+    #if TARGET_IPHONE_SIMULATOR
+        // iOS, tvOS, or watchOS Simulator
+        #define INI_OS_WINDOWS 0
+        #define INI_OS_APPLE 1
+        #define INI_OS_UNIX 0
+    #elif TARGET_OS_MACCATALYST
+        // Mac's Catalyst (ports iOS API into Mac, like UIKit).
+        #define INI_OS_WINDOWS 0
+        #define INI_OS_APPLE 1
+        #define INI_OS_UNIX 0
+    #elif TARGET_OS_IPHONE
+        // iOS, tvOS, or watchOS device
+        #define INI_OS_WINDOWS 0
+        #define INI_OS_APPLE 1
+        #define INI_OS_UNIX 0
+    #elif TARGET_OS_MAC
+        // Other kinds of Apple platforms
+        #define INI_OS_WINDOWS 0
+        #define INI_OS_APPLE 1
+        #define INI_OS_UNIX 0
+    #else
+        #error "Unknown Apple platform"
+    #endif
 #elif defined(__unix__) || defined(__linux__)
-#define INI_OS_WINDOWS 0
-#define INI_OS_APPLE 0
-#define INI_OS_UNIX 1 // Linux/BSD/etc
+    #define INI_OS_WINDOWS 0
+    #define INI_OS_APPLE 0
+    #define INI_OS_UNIX 1 // Linux/BSD/etc
 #else
-#define INI_OS_WINDOWS 0
-#define INI_OS_APPLE 0
-#define INI_OS_UNIX 0
+    #define INI_OS_WINDOWS 0
+    #define INI_OS_APPLE 0
+    #define INI_OS_UNIX 0
 #endif
 // =========================================================
 
@@ -53,7 +53,7 @@ extern "C"
 #endif
 
 #define INI_ERRSTACK_SIZE 1024
-#define INI_LINE_MAX 1024
+#define INI_LINE_MAX 8192
 #define INI_BUFFER_SIZE 2048
 
 #if INI_OS_WINDOWS
@@ -92,6 +92,7 @@ extern "C"
         INI_MEMORY_ERROR,         ///< Failed to allocate/reallocate/free memory.
         INI_PRINT_ERROR,          ///< Error during printing/formatting.
         INI_FILE_BAD_FORMAT_LINE, ///< Syntax error at a specific line.
+        INI_FILE_PERMISSION_DENIED, ///< Permission denied (e.g. read-only file)
     } ini_error_t;
 
     /// @brief Common stack of errors for all the modules.
@@ -251,6 +252,22 @@ extern pthread_mutex_t __ini_errstack_mutex;
     INIPARSER_API ini_error_details_t ini_save(ini_context_t const *ctx, char const *filepath);
 
     /**
+     * @brief Saves a specific section and key/value pair to a file.
+     * @param ctx Context to query.
+     * @param filepath Path to save to.
+     * @param section Section name.
+     * @param key Key name to save, or NULL to save all keys in the section.
+     * @return Error details (INI_SUCCESS on success).
+     * @note Thread-safe: Uses mutex/semaphore internally.
+     * @note If the file already exists, only the specified section/key will be updated,
+     *       preserving all other content.
+     */
+    INIPARSER_API ini_error_details_t ini_save_section_value(ini_context_t const *ctx,
+                                                             char const *filepath,
+                                                             char const *section,
+                                                             char const *key);
+
+    /**
      * @brief Prints the INI context contents (for debugging).
      * @param stream Stream to print to. Example: stderr, stdout, file, etc.
      * @param ctx Context to print.
@@ -271,6 +288,22 @@ extern pthread_mutex_t __ini_errstack_mutex;
      * @return Error details (INI_SUCCESS on success).
      */
     INIPARSER_API ini_error_details_t __INI_MUTEX_UNLOCK(ini_context_t *ctx);
+
+    /**
+     * @brief Finds a section by name in a context.
+     * @param ctx Context to search in.
+     * @param section_name Name of the section to find.
+     * @return Pointer to the section if found, NULL otherwise.
+     */
+    INIPARSER_API const ini_section_t *__ini_find_section(const ini_context_t *ctx, const char *section_name);
+
+    /**
+     * @brief Finds a key-value pair by key in a section.
+     * @param section Section to search in.
+     * @param key Key to find.
+     * @return Pointer to the key-value pair if found, NULL otherwise.
+     */
+    INIPARSER_API const ini_key_value_t *__ini_find_pair(const ini_section_t *section, const char *key);
 
 #ifdef __cplusplus
 }
