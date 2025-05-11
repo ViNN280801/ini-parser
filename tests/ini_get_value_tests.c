@@ -22,15 +22,36 @@ void test_empty_value()
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
 
-    ini_error_details_t err = ini_print(stderr, ctx);
+    // Load the INI file with empty value
+    ini_error_details_t err = ini_load(ctx, TEST_FILE);
+    fprintf(stderr, "ini_load returned, error=%d\n", err.error);
+    assert(err.error == INI_SUCCESS);
+
+    err = ini_print(stderr, ctx);
     assert(err.error == INI_SUCCESS);
 
     char *value = NULL;
+    fprintf(stderr, "About to call ini_get_value for section='section', key='key'\n");
     err = ini_get_value(ctx, "section", "key", &value);
+    fprintf(stderr, "ini_get_value returned, error=%d\n", err.error);
     assert(err.error == INI_SUCCESS);
-    assert(value == NULL);
 
+    fprintf(stderr, "Value pointer: %p\n", (void *)value);
+    if (value)
+    {
+        fprintf(stderr, "Value: '%s', Length: %zu\n", value, strlen(value));
+        assert(strlen(value) == 0); // Empty string
+        free(value);
+    }
+    else
+    {
+        fprintf(stderr, "Value is NULL\n");
+        assert(0); // Should not be NULL for empty value, but empty string
+    }
+
+    fprintf(stderr, "About to free ctx\n");
     err = ini_free(ctx);
+    fprintf(stderr, "ini_free returned\n");
     assert(err.error == INI_SUCCESS);
     remove_test_file(TEST_FILE);
     print_success("test_empty_value passed\n");
@@ -39,7 +60,8 @@ void test_empty_value()
 void test_get_existing_value()
 {
     create_test_file(TEST_FILE, "[section]\nkey=value\n");
-    ini_context_t *ctx = NULL;
+    ini_context_t *ctx = ini_create_context();
+    assert(ctx != NULL);
     ini_error_details_t err = ini_load(ctx, TEST_FILE);
     assert(err.error == INI_SUCCESS);
     err = ini_print(stderr, ctx);
@@ -166,6 +188,7 @@ void test_unicode()
 
 void test_utf8_bom()
 {
+    fprintf(stderr, "Starting test_utf8_bom\n");
     FILE *f = fopen(TEST_FILE, "wb");
     const unsigned char bom[] = {0xEF, 0xBB, 0xBF};
     fwrite(bom, 1, 3, f);
@@ -175,16 +198,35 @@ void test_utf8_bom()
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
 
+    fprintf(stderr, "Loading file with BOM\n");
     ini_error_details_t err = ini_load(ctx, TEST_FILE);
+    fprintf(stderr, "ini_load returned, error=%d (%s)\n", err.error, ini_error_to_string(err.error));
+    assert(err.error == INI_SUCCESS);
+
+    fprintf(stderr, "Printing content:\n");
+    err = ini_print(stderr, ctx);
     assert(err.error == INI_SUCCESS);
 
     char *value = NULL;
+    fprintf(stderr, "Calling ini_get_value('section', 'key')\n");
     err = ini_get_value(ctx, "section", "key", &value);
+    fprintf(stderr, "ini_get_value returned, error=%d (%s)\n", err.error, ini_error_to_string(err.error));
     assert(err.error == INI_SUCCESS);
-    assert(value != NULL);
-    assert(strcmp(value, "значение") == 0);
-    free(value);
 
+    fprintf(stderr, "Value pointer: %p\n", (void *)value);
+    if (value)
+    {
+        fprintf(stderr, "Value: '%s', Length: %zu\n", value, strlen(value));
+        assert(strcmp(value, "значение") == 0);
+        free(value);
+    }
+    else
+    {
+        fprintf(stderr, "Value is NULL\n");
+        assert(0); // Should not be NULL
+    }
+
+    fprintf(stderr, "Freeing context\n");
     err = ini_free(ctx);
     assert(err.error == INI_SUCCESS);
     remove_test_file(TEST_FILE);

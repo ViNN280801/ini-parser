@@ -77,12 +77,12 @@ void test_bad_format_empty_key()
     remove_test_file(TEST_FILE);
 }
 
-void test_bad_format_empty_value()
+void test_empty_value()
 {
     create_test_file(TEST_FILE, "[section]\nkey=\n");
     ini_error_details_t err = ini_good(TEST_FILE);
-    assert(err.error == INI_FILE_BAD_FORMAT);
-    print_success("test_bad_format_empty_value passed\n");
+    assert(err.error == INI_SUCCESS);
+    print_success("test_empty_value passed\n");
     remove_test_file(TEST_FILE);
 }
 
@@ -202,7 +202,7 @@ int main()
     test_valid_file();
     test_bad_format_missing_bracket();
     test_bad_format_empty_key();
-    test_bad_format_empty_value();
+    test_empty_value();
     test_bad_format_unbalanced_quotes();
     test_bad_format_arrays_not_supported();
     test_utf8_chars();

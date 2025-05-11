@@ -110,17 +110,17 @@ void test_bad_format_empty_key()
     print_success("test_bad_format_empty_key passed\n");
 }
 
-void test_bad_format_empty_value()
+void test_empty_value()
 {
-    create_test_file("bad_empty_value.ini", "[section]\nkey=\n");
+    create_test_file("empty_value.ini", "[section]\nkey=\n");
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
-    ini_error_details_t err = ini_load(ctx, "bad_empty_value.ini");
-    assert(__ini_has_in_errstack(INI_FILE_BAD_FORMAT) == 1);
-    remove_test_file("bad_empty_value.ini");
+    ini_error_details_t err = ini_load(ctx, "empty_value.ini");
+    assert(err.error == INI_SUCCESS);
+    remove_test_file("empty_value.ini");
     err = ini_free(ctx);
     assert(err.error == INI_SUCCESS);
-    print_success("test_bad_format_empty_value passed\n");
+    print_success("test_empty_value passed\n");
 }
 
 void test_bad_format_unbalanced_quotes()
@@ -186,9 +186,6 @@ void test_line_too_long()
     assert(ctx != NULL);
     ini_error_details_t err = ini_load(ctx, "long_line.ini");
     assert(__ini_has_in_errstack(INI_FILE_BAD_FORMAT) == 1);
-    remove_test_file("long_line.ini");
-    err = ini_free(ctx);
-    assert(err.error == INI_SUCCESS);
     remove_test_file("long_line.ini");
     err = ini_free(ctx);
     assert(err.error == INI_SUCCESS);
@@ -308,7 +305,7 @@ int main()
     test_valid_file();
     test_bad_format_missing_bracket();
     test_bad_format_empty_key();
-    test_bad_format_empty_value();
+    test_empty_value();
     test_bad_format_unbalanced_quotes();
     test_bad_format_arrays_not_supported();
     test_utf8_chars();

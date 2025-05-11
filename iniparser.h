@@ -242,6 +242,15 @@ extern pthread_mutex_t __ini_errstack_mutex;
                                                     char **value);
 
     /**
+     * @brief Saves an INI context to a file.
+     * @param ctx Context to save.
+     * @param filepath Path to save to.
+     * @return Error details (INI_SUCCESS on success).
+     * @note Thread-safe: Uses mutex/semaphore internally.
+     */
+    INIPARSER_API ini_error_details_t ini_save(ini_context_t const *ctx, char const *filepath);
+
+    /**
      * @brief Prints the INI context contents (for debugging).
      * @param stream Stream to print to. Example: stderr, stdout, file, etc.
      * @param ctx Context to print.

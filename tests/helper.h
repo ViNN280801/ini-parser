@@ -117,6 +117,11 @@ static void print_warning(const char *format, ...)
 
 static void create_test_file(const char *filename, const char *content)
 {
+    if (!filename || !content)
+    {
+        print_error("NULL filename or content\n");
+        return;
+    }
     FILE *file = fopen(filename, "w");
     if (!file)
     {
@@ -137,6 +142,11 @@ static void create_test_file(const char *filename, const char *content)
 
 static void remove_test_file(const char *filename)
 {
+    if (!filename)
+    {
+        print_error("NULL filename\n");
+        return;
+    }
 #ifdef _WIN32
     if (remove(filename) != 0)
     {
