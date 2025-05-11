@@ -16,6 +16,8 @@
 #include "helper.h"
 #include "iniparser.h"
 
+#define TEST_FILE "test.ini"
+
 void test_free_null_context()
 {
     ini_error_details_t err = ini_free(NULL);
@@ -34,13 +36,13 @@ void test_free_empty_context()
 
 void test_free_loaded_context()
 {
-    create_test_file("test.ini", "[section]\nkey=value\n");
+    create_test_file(TEST_FILE, "[section]\nkey=value\n");
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
-    ini_load(ctx, "test.ini");
+    ini_load(ctx, TEST_FILE);
     ini_error_details_t err = ini_free(ctx);
     assert(err.error == INI_SUCCESS);
-    remove_test_file("test.ini");
+    remove_test_file(TEST_FILE);
     print_success("test_free_loaded_context passed\n");
 }
 
@@ -75,27 +77,27 @@ void test_free_memory_leak()
 
 void test_free_with_sections()
 {
-    create_test_file("test.ini", "[section1]\nkey1=value1\n[section2]\nkey2=value2\n");
+    create_test_file(TEST_FILE, "[section1]\nkey1=value1\n[section2]\nkey2=value2\n");
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
-    ini_error_details_t err = ini_load(ctx, "test.ini");
+    ini_error_details_t err = ini_load(ctx, TEST_FILE);
     assert(err.error == INI_SUCCESS);
     err = ini_free(ctx);
     assert(err.error == INI_SUCCESS);
-    remove_test_file("test.ini");
+    remove_test_file(TEST_FILE);
     print_success("test_free_with_sections passed\n");
 }
 
 void test_free_with_subsections()
 {
-    create_test_file("test.ini", "[parent]\nkey=value\n[parent.child]\nkey=value\n");
+    create_test_file(TEST_FILE, "[parent]\nkey=value\n[parent.child]\nkey=value\n");
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
-    ini_error_details_t err = ini_load(ctx, "test.ini");
+    ini_error_details_t err = ini_load(ctx, TEST_FILE);
     assert(err.error == INI_SUCCESS);
     err = ini_free(ctx);
     assert(err.error == INI_SUCCESS);
-    remove_test_file("test.ini");
+    remove_test_file(TEST_FILE);
     print_success("test_free_with_subsections passed\n");
 }
 

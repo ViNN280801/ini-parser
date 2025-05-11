@@ -643,24 +643,23 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
 
     if (!ctx)
     {
-        ctx = ini_create_context();
-        if (!ctx)
-        {
-            __ini_add_in_errstack(INI_MEMORY_ERROR);
-            return create_error(
-                INI_MEMORY_ERROR,
-                filepath,
-                0,
-                __FILE__,
-                __LINE__,
-                "Failed to create context");
-        }
+        __ini_add_in_errstack(INI_MEMORY_ERROR);
+        return create_error(
+            INI_MEMORY_ERROR,
+            filepath,
+            0,
+            __FILE__,
+            __LINE__,
+            "Failed to create context");
     }
     else
     {
-        ini_error_details_t err = ini_free(ctx);
-        if (err.error != INI_SUCCESS)
-            return err;
+        if (ctx)
+        {
+            ini_error_details_t err = ini_free(ctx);
+            if (err.error != INI_SUCCESS)
+                return err;
+        }
         ctx = ini_create_context();
         if (!ctx)
         {
@@ -678,12 +677,20 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
     // Validate file
     ini_error_details_t err = ini_good(filepath);
     if (err.error != INI_SUCCESS)
-        goto cleanup;
+    {
+        if (ctx)
+            err = ini_free(ctx);
+        return err;
+    }
 
     // Lock mutex
     err = __INI_MUTEX_LOCK(ctx);
     if (err.error != INI_SUCCESS)
-        goto cleanup;
+    {
+        if (ctx)
+            err = ini_free(ctx);
+        return err;
+    }
 
     // Open file
     FILE *file;
@@ -698,7 +705,13 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
             __FILE__,
             __LINE__,
             "Failed to open file");
-        goto unlock;
+        err = __INI_MUTEX_UNLOCK(ctx);
+        if (err.error != INI_SUCCESS)
+        {
+            if (ctx)
+                err = ini_free(ctx);
+            return err;
+        }
     }
 #else
     file = fopen(filepath, "r");
@@ -712,7 +725,13 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
             __FILE__,
             __LINE__,
             "Failed to open file");
-        goto unlock;
+        err = __INI_MUTEX_UNLOCK(ctx);
+        if (err.error != INI_SUCCESS)
+        {
+            if (ctx)
+                err = ini_free(ctx);
+            return err;
+        }
     }
 #endif
 
@@ -746,7 +765,13 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
                         __FILE__,
                         __LINE__,
                         "Failed to close file");
-                    goto unlock;
+                    err = __INI_MUTEX_UNLOCK(ctx);
+                    if (err.error != INI_SUCCESS)
+                    {
+                        if (ctx)
+                            err = ini_free(ctx);
+                        return err;
+                    }
                 }
                 __ini_add_in_errstack(INI_FILE_BAD_FORMAT);
                 err = create_error(
@@ -756,7 +781,13 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
                     __FILE__,
                     __LINE__,
                     "Failed to close file");
-                goto unlock;
+                err = __INI_MUTEX_UNLOCK(ctx);
+                if (err.error != INI_SUCCESS)
+                {
+                    if (ctx)
+                        err = ini_free(ctx);
+                    return err;
+                }
             }
             *end = '\0';
             char *name = trimmed + 1;
@@ -790,7 +821,13 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
                             __FILE__,
                             __LINE__,
                             "Failed to close file");
-                        goto unlock;
+                        err = __INI_MUTEX_UNLOCK(ctx);
+                        if (err.error != INI_SUCCESS)
+                        {
+                            if (ctx)
+                                err = ini_free(ctx);
+                            return err;
+                        }
                     }
                     __ini_add_in_errstack(INI_SECTION_NOT_FOUND);
                     err = create_error(
@@ -800,7 +837,13 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
                         __FILE__,
                         __LINE__,
                         "Failed to close file");
-                    goto unlock;
+                    err = __INI_MUTEX_UNLOCK(ctx);
+                    if (err.error != INI_SUCCESS)
+                    {
+                        if (ctx)
+                            err = ini_free(ctx);
+                        return err;
+                    }
                 }
 
                 // Add subsection
@@ -817,7 +860,13 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
                             __FILE__,
                             __LINE__,
                             "Failed to close file");
-                        goto unlock;
+                        err = __INI_MUTEX_UNLOCK(ctx);
+                        if (err.error != INI_SUCCESS)
+                        {
+                            if (ctx)
+                                err = ini_free(ctx);
+                            return err;
+                        }
                     }
                     __ini_add_in_errstack(INI_MEMORY_ERROR);
                     err = create_error(
@@ -827,7 +876,13 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
                         __FILE__,
                         __LINE__,
                         "Failed to close file");
-                    goto unlock;
+                    err = __INI_MUTEX_UNLOCK(ctx);
+                    if (err.error != INI_SUCCESS)
+                    {
+                        if (ctx)
+                            err = ini_free(ctx);
+                        return err;
+                    }
                 }
                 current_section = &parent->subsections[parent->subsection_count++];
                 current_section->name = ini_strdup(subsection_name);
@@ -852,7 +907,13 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
                             __FILE__,
                             __LINE__,
                             "Failed to close file");
-                        goto unlock;
+                        err = __INI_MUTEX_UNLOCK(ctx);
+                        if (err.error != INI_SUCCESS)
+                        {
+                            if (ctx)
+                                err = ini_free(ctx);
+                            return err;
+                        }
                     }
                     __ini_add_in_errstack(INI_MEMORY_ERROR);
                     err = create_error(
@@ -862,7 +923,13 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
                         __FILE__,
                         __LINE__,
                         "Failed to close file");
-                    goto unlock;
+                    err = __INI_MUTEX_UNLOCK(ctx);
+                    if (err.error != INI_SUCCESS)
+                    {
+                        if (ctx)
+                            err = ini_free(ctx);
+                        return err;
+                    }
                 }
                 current_section = &ctx->sections[ctx->section_count++];
                 current_section->name = ini_strdup(name);
@@ -916,7 +983,13 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
                         __FILE__,
                         __LINE__,
                         "Failed to close file");
-                    goto unlock;
+                    err = __INI_MUTEX_UNLOCK(ctx);
+                    if (err.error != INI_SUCCESS)
+                    {
+                        if (ctx)
+                            err = ini_free(ctx);
+                        return err;
+                    }
                 }
                 __ini_add_in_errstack(INI_MEMORY_ERROR);
                 err = create_error(
@@ -926,7 +999,13 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
                     __FILE__,
                     __LINE__,
                     "Failed to close file");
-                goto unlock;
+                err = __INI_MUTEX_UNLOCK(ctx);
+                if (err.error != INI_SUCCESS)
+                {
+                    if (ctx)
+                        err = ini_free(ctx);
+                    return err;
+                }
             }
             current_section->pairs[current_section->pair_count].key = ini_strdup(key);
             current_section->pairs[current_section->pair_count].value = ini_strdup(value);
@@ -944,10 +1023,22 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
             __FILE__,
             __LINE__,
             "Failed to close file");
-        goto unlock;
+        err = __INI_MUTEX_UNLOCK(ctx);
+        if (err.error != INI_SUCCESS)
+        {
+            if (ctx)
+                err = ini_free(ctx);
+            return err;
+        }
     }
 
-    goto unlock;
+    err = __INI_MUTEX_UNLOCK(ctx);
+    if (err.error != INI_SUCCESS)
+    {
+        if (ctx)
+            err = ini_free(ctx);
+        return err;
+    }
     __ini_clear_errstack();
     return create_error(
         INI_SUCCESS,
@@ -956,16 +1047,6 @@ INIPARSER_API ini_error_details_t ini_load(ini_context_t *ctx, char const *filep
         __FILE__,
         __LINE__,
         "File loaded successfully");
-
-unlock:
-    __INI_MUTEX_UNLOCK(ctx);
-    if (err.error != INI_SUCCESS)
-        goto cleanup;
-
-cleanup:
-    if (err.error != INI_SUCCESS && ctx)
-        err = ini_free(ctx);
-    return err;
 }
 
 INIPARSER_API ini_context_t *ini_create_context()
@@ -1065,6 +1146,8 @@ INIPARSER_API ini_error_details_t ini_free(ini_context_t *ctx)
 
 INIPARSER_API ini_error_details_t ini_get_value(ini_context_t const *ctx, char const *section, char const *key, char **value)
 {
+    // 1. Checking arguments for NULL
+    fprintf(stderr, "Checking arguments for NULL\nChecking ctx: %p\n", ctx);
     if (!ctx)
     {
         __ini_add_in_errstack(INI_INVALID_ARGUMENT);
@@ -1076,7 +1159,9 @@ INIPARSER_API ini_error_details_t ini_get_value(ini_context_t const *ctx, char c
             __LINE__,
             "Invalid argument: NULL context");
     }
+    fprintf(stderr, "ctx is ok\n");
 
+    fprintf(stderr, "Checking section: %p\n", section);
     if (!section)
     {
         __ini_add_in_errstack(INI_INVALID_ARGUMENT);
@@ -1088,7 +1173,9 @@ INIPARSER_API ini_error_details_t ini_get_value(ini_context_t const *ctx, char c
             __LINE__,
             "Invalid argument: NULL section");
     }
+    fprintf(stderr, "section is ok\n");
 
+    fprintf(stderr, "Checking key: %p\n", key);
     if (!key)
     {
         __ini_add_in_errstack(INI_INVALID_ARGUMENT);
@@ -1100,7 +1187,9 @@ INIPARSER_API ini_error_details_t ini_get_value(ini_context_t const *ctx, char c
             __LINE__,
             "Invalid argument: NULL key");
     }
+    fprintf(stderr, "key is ok\n");
 
+    fprintf(stderr, "Checking value: %p\n", value);
     if (!value)
     {
         __ini_add_in_errstack(INI_INVALID_ARGUMENT);
@@ -1110,23 +1199,15 @@ INIPARSER_API ini_error_details_t ini_get_value(ini_context_t const *ctx, char c
             0,
             __FILE__,
             __LINE__,
-            "Invalid argument: NULL value");
+            "Invalid argument: NULL value pointer");
     }
+    fprintf(stderr, "value is ok\n");
 
-    // Thread safety: Lock the mutex/semaphore
-#if INI_OS_WINDOWS
-    EnterCriticalSection(&((ini_context_t *)ctx)->mutex); // Cast away const for mutex access
-#elif INI_OS_APPLE
-    dispatch_semaphore_wait(((ini_context_t *)ctx)->semaphore, DISPATCH_TIME_FOREVER);
-#else
-    pthread_mutex_lock(&((ini_context_t *)ctx)->mutex);
-#endif
-
-    // Search for the section
+    // 2. Search for the section
     ini_section_t const *found_section = NULL;
     for (int i = 0; i < ctx->section_count; i++)
     {
-        if (strcmp(ctx->sections[i].name, section) == 0)
+        if (ctx->sections && ctx->sections[i].name && strcmp(ctx->sections[i].name, section) == 0)
         {
             found_section = &ctx->sections[i];
             break;
@@ -1135,15 +1216,8 @@ INIPARSER_API ini_error_details_t ini_get_value(ini_context_t const *ctx, char c
 
     if (!found_section)
     {
-        // Unlock before returning
-#if INI_OS_WINDOWS
-        LeaveCriticalSection(&((ini_context_t *)ctx)->mutex);
-#elif INI_OS_APPLE
-        dispatch_semaphore_signal(((ini_context_t *)ctx)->semaphore);
-#else
-        pthread_mutex_unlock(&((ini_context_t *)ctx)->mutex);
-#endif
         __ini_add_in_errstack(INI_SECTION_NOT_FOUND);
+        fprintf(stderr, "Section not found\n");
         return create_error(
             INI_SECTION_NOT_FOUND,
             NULL,
@@ -1153,74 +1227,77 @@ INIPARSER_API ini_error_details_t ini_get_value(ini_context_t const *ctx, char c
             "Section not found");
     }
 
-    // Search for the key in the section
-    for (int j = 0; j < found_section->pair_count; j++)
+    // 3. Search for the key in the section
+    ini_key_value_t *found_pair = NULL;
+    if (found_section->pairs)
     {
-        if (strcmp(found_section->pairs[j].key, key) == 0)
+        for (int j = 0; j < found_section->pair_count; j++)
         {
-            *value = ini_strdup(found_section->pairs[j].value);
-            if (!*value)
+            if (found_section->pairs[j].key && strcmp(found_section->pairs[j].key, key) == 0)
             {
-                // Unlock before returning
-#if INI_OS_WINDOWS
-                LeaveCriticalSection(&((ini_context_t *)ctx)->mutex);
-#elif INI_OS_APPLE
-                dispatch_semaphore_signal(((ini_context_t *)ctx)->semaphore);
-#else
-                pthread_mutex_unlock(&((ini_context_t *)ctx)->mutex);
-#endif
-                __ini_add_in_errstack(INI_MEMORY_ERROR);
-                return create_error(
-                    INI_MEMORY_ERROR,
-                    NULL,
-                    0,
-                    __FILE__,
-                    __LINE__,
-                    "Failed to duplicate value string");
+                found_pair = &found_section->pairs[j];
+                break;
             }
-            // Unlock before returning
-#if INI_OS_WINDOWS
-            LeaveCriticalSection(&((ini_context_t *)ctx)->mutex);
-#elif INI_OS_APPLE
-            dispatch_semaphore_signal(((ini_context_t *)ctx)->semaphore);
-#else
-            pthread_mutex_unlock(&((ini_context_t *)ctx)->mutex);
-#endif
-            __ini_clear_errstack();
+        }
+    }
+
+    if (!found_pair)
+    {
+        __ini_add_in_errstack(INI_KEY_NOT_FOUND);
+        return create_error(
+            INI_KEY_NOT_FOUND,
+            NULL,
+            0,
+            __FILE__,
+            __LINE__,
+            "Key not found in section");
+    }
+
+    // 4. Handle the value
+    // Free previous value if it exists
+    if (*value)
+    {
+        free(*value);
+        *value = NULL;
+    }
+
+    // Handle empty values
+    if (!found_pair->value || found_pair->value[0] == '\0')
+    {
+        *value = NULL; // Return NULL for empty values
+    }
+    else
+    {
+        *value = ini_strdup(found_pair->value);
+        if (!*value)
+        {
+            __ini_add_in_errstack(INI_MEMORY_ERROR);
             return create_error(
-                INI_SUCCESS,
+                INI_MEMORY_ERROR,
                 NULL,
                 0,
                 __FILE__,
                 __LINE__,
-                "Value retrieved successfully");
+                "Failed to duplicate value string");
         }
     }
 
-    // Key not found in the section
-    // Unlock before returning
-#if INI_OS_WINDOWS
-    LeaveCriticalSection(&((ini_context_t *)ctx)->mutex);
-#elif INI_OS_APPLE
-    dispatch_semaphore_signal(((ini_context_t *)ctx)->semaphore);
-#else
-    pthread_mutex_unlock(&((ini_context_t *)ctx)->mutex);
-#endif
-    __ini_add_in_errstack(INI_KEY_NOT_FOUND);
+    // 6. Unlock and return success
+    __ini_clear_errstack();
     return create_error(
-        INI_KEY_NOT_FOUND,
+        INI_SUCCESS,
         NULL,
         0,
         __FILE__,
         __LINE__,
-        "Key not found in section");
+        "Value retrieved successfully");
 }
 
-INIPARSER_API ini_error_details_t ini_print(ini_context_t const *ctx)
+INIPARSER_API ini_error_details_t ini_print(FILE *stream, ini_context_t const *ctx)
 {
     if (!ctx)
     {
-        if (printf("Error: NULL context\n") < 0)
+        if (fprintf(stream, "Error: NULL context\n") < 0)
         {
             __ini_add_in_errstack(INI_PRINT_ERROR);
             return create_error(
@@ -1245,7 +1322,10 @@ INIPARSER_API ini_error_details_t ini_print(ini_context_t const *ctx)
     for (int i = 0; i < ctx->section_count; i++)
     {
         ini_section_t const *section = &ctx->sections[i];
-        if (printf("[%s]\n", section->name) < 0)
+        if (!section || !section->name)
+            continue; // Skip invalid sections
+
+        if (fprintf(stream, "[%s]\n", section->name) < 0)
         {
             __ini_add_in_errstack(INI_PRINT_ERROR);
             return create_error(
@@ -1260,7 +1340,10 @@ INIPARSER_API ini_error_details_t ini_print(ini_context_t const *ctx)
         // Print key-value pairs
         for (int j = 0; j < section->pair_count; j++)
         {
-            if (printf("%s = %s\n", section->pairs[j].key, section->pairs[j].value) < 0)
+            if (!section->pairs || !section->pairs[j].key || !section->pairs[j].value)
+                continue; // Skip invalid pairs
+
+            if (fprintf(stream, "%s = %s\n", section->pairs[j].key, section->pairs[j].value) < 0)
             {
                 __ini_add_in_errstack(INI_PRINT_ERROR);
                 return create_error(
@@ -1277,7 +1360,10 @@ INIPARSER_API ini_error_details_t ini_print(ini_context_t const *ctx)
         for (int k = 0; k < section->subsection_count; k++)
         {
             ini_section_t const *subsection = &section->subsections[k];
-            if (printf("\n[%s.%s]\n", section->name, subsection->name) < 0)
+            if (!subsection || !subsection->name)
+                continue; // Skip invalid subsections
+
+            if (fprintf(stream, "\n[%s.%s]\n", section->name, subsection->name) < 0)
             {
                 __ini_add_in_errstack(INI_PRINT_ERROR);
                 return create_error(
@@ -1292,7 +1378,10 @@ INIPARSER_API ini_error_details_t ini_print(ini_context_t const *ctx)
             // Print subsection key-value pairs
             for (int l = 0; l < subsection->pair_count; l++)
             {
-                if (printf("%s = %s\n", subsection->pairs[l].key, subsection->pairs[l].value) < 0)
+                if (!subsection->pairs || !subsection->pairs[l].key || !subsection->pairs[l].value)
+                    continue; // Skip invalid pairs
+
+                if (fprintf(stream, "%s = %s\n", subsection->pairs[l].key, subsection->pairs[l].value) < 0)
                 {
                     __ini_add_in_errstack(INI_PRINT_ERROR);
                     return create_error(
@@ -1306,7 +1395,7 @@ INIPARSER_API ini_error_details_t ini_print(ini_context_t const *ctx)
             }
         }
 
-        if (printf("\n") < 0)
+        if (fprintf(stream, "\n") < 0)
         {
             __ini_add_in_errstack(INI_PRINT_ERROR);
             return create_error(

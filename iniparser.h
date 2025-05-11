@@ -243,10 +243,11 @@ extern pthread_mutex_t __ini_errstack_mutex;
 
     /**
      * @brief Prints the INI context contents (for debugging).
+     * @param stream Stream to print to. Example: stderr, stdout, file, etc.
      * @param ctx Context to print.
      * @return Error details (INI_SUCCESS on success).
      */
-    INIPARSER_API ini_error_details_t ini_print(ini_context_t const *ctx);
+    INIPARSER_API ini_error_details_t ini_print(FILE *stream, ini_context_t const *ctx);
 
     /**
      * @brief Locks the context's mutex/semaphore (internal use).
