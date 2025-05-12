@@ -1646,6 +1646,35 @@ INIPARSER_API ini_error_details_t ini_save(ini_context_t const *ctx, char const 
             "Filepath is NULL");
     }
 
+    // Check if the directory is writable (Windows-specific)
+#if INI_OS_WINDOWS
+    {
+        // Extract directory path from filepath
+        char dirpath[MAX_PATH];
+        strncpy(dirpath, filepath, sizeof(dirpath));
+        dirpath[sizeof(dirpath) - 1] = '\0';
+
+        char *last_slash = strrchr(dirpath, '\\');
+        if (last_slash)
+            *last_slash = '\0'; // Remove filename, keep directory
+        else
+            dirpath[0] = '\0'; // No directory component (current dir)
+
+        DWORD attrs = GetFileAttributes(dirpath[0] ? dirpath : ".");
+        if (attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_READONLY))
+        {
+            __ini_add_in_errstack(INI_FILE_OPEN_FAILED);
+            return create_error(
+                INI_FILE_OPEN_FAILED,
+                filepath,
+                0,
+                __FILE__,
+                __LINE__,
+                "Parent directory is read-only");
+        }
+    }
+#endif
+
     // 2. Open file for writing
     FILE *file = NULL;
 #if INI_OS_WINDOWS
