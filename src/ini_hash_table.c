@@ -1,14 +1,17 @@
+#define INI_IMPLEMENTATION
 #include <stdlib.h>
 #include <string.h>
 
 #include "ini_hash_table.h"
 #include "ini_string.h"
 
-#define INITIAL_CAPACITY 16 ///< Initial capacity for the hash table. Must be a power of 2.
-
 uint64_t hash_key(char const *key)
 {
     uint64_t hash = 14695981039346656037ULL;
+
+    if (key == NULL)
+        return hash; // Return the initial hash value if the key is NULL
+
     char const *p = key;
     while (*p)
     {
@@ -26,7 +29,7 @@ ini_ht_t *ini_ht_create(void)
         return NULL;
 
     table->length = 0;
-    table->capacity = INITIAL_CAPACITY;
+    table->capacity = INI_HT_INITIAL_CAPACITY;
     table->entries = calloc(table->capacity, sizeof(ini_ht_key_value_t));
     if (!table->entries)
     {
@@ -72,7 +75,7 @@ ini_ht_error_t ini_ht_destroy(ini_ht_t *table)
     return INI_HT_SUCCESS;
 }
 
-ini_ht_key_value_t *ht_get_entry(ini_ht_key_value_t *entries, size_t capacity, char const *key)
+ini_ht_key_value_t *_impl_ht_get_entry(ini_ht_key_value_t *entries, size_t capacity, char const *key)
 {
     uint64_t hash = hash_key(key);
     size_t index = (size_t)(hash & (uint64_t)(capacity - 1));
@@ -97,15 +100,15 @@ char const *ini_ht_get(ini_ht_t *table, char const *key)
     if (ini_mutex_lock(&table->mutex) != 0)
         return NULL;
 
-    ini_ht_key_value_t *entry = ht_get_entry(table->entries, table->capacity, key);
+    ini_ht_key_value_t *entry = _impl_ht_get_entry(table->entries, table->capacity, key);
     if (ini_mutex_unlock(&table->mutex) != 0)
         return NULL;
 
     return entry ? entry->value : NULL;
 }
 
-ini_ht_error_t ht_set_entry(ini_ht_key_value_t *entries, size_t capacity,
-                            char const *key, char const *value, size_t *plength)
+ini_ht_error_t _impl_ht_set_entry(ini_ht_key_value_t *entries, size_t capacity,
+                                  char const *key, char const *value, size_t *plength)
 {
     uint64_t hash = hash_key(key);
     size_t index = (size_t)(hash & (uint64_t)(capacity - 1));
@@ -158,8 +161,8 @@ ini_ht_error_t ht_expand(ini_ht_t *table)
     {
         if (table->entries[i].key)
         {
-            if (ht_set_entry(new_entries, new_capacity, table->entries[i].key,
-                             table->entries[i].value, NULL) != 0)
+            if (_impl_ht_set_entry(new_entries, new_capacity, table->entries[i].key,
+                                   table->entries[i].value, NULL) != 0)
             {
                 for (size_t j = 0; j < new_capacity; j++)
                 {
@@ -209,7 +212,7 @@ char const *ini_ht_set(ini_ht_t *table, char const *key, char const *value)
         }
     }
 
-    if (ht_set_entry(table->entries, table->capacity, key, value, &table->length) != 0)
+    if (_impl_ht_set_entry(table->entries, table->capacity, key, value, &table->length) != 0)
     {
         if (ini_mutex_unlock(&table->mutex) != 0)
             return NULL;

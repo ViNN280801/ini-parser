@@ -7,6 +7,8 @@
 #include "ini_export.h"
 #include "ini_mutex.h"
 
+#define INI_HT_INITIAL_CAPACITY 16 ///< Initial capacity for the hash table. Must be a power of 2.
+
 #if INI_OS_WINDOWS
     #include <windows.h>
 
@@ -86,20 +88,20 @@ typedef struct
  * @return 64-bit hash value.
  * @see https://en.wikipedia.org/wiki/Fowler–Noll–Vo_hash_function
  */
-uint64_t hash_key(char const *key);
+INI_PUBLIC_API uint64_t hash_key(char const *key);
 
 /**
  * @brief Creates a new hash table.
  * @return Pointer to the table, or NULL on failure.
  * @post Check `ini_ht_last_error()` for failure details.
  */
-ini_ht_t *ini_ht_create(void);
+INI_PUBLIC_API ini_ht_t *ini_ht_create(void);
 
 /**
  * @brief Destroys a hash table and frees all resources.
  * @param table Table to destroy (safe to call with NULL).
  */
-ini_ht_error_t ini_ht_destroy(ini_ht_t *table);
+INI_PUBLIC_API ini_ht_error_t ini_ht_destroy(ini_ht_t *table);
 
 /**
  * @brief Retrieves a value by key.
@@ -108,7 +110,7 @@ ini_ht_error_t ini_ht_destroy(ini_ht_t *table);
  * @return Associated value, or NULL if key not found.
  * @note Thread-safe (uses mutex locking).
  */
-char const *ini_ht_get(ini_ht_t *table, char const *key);
+INI_PUBLIC_API char const *ini_ht_get(ini_ht_t *table, char const *key);
 
 /**
  * @brief Inserts or updates a key-value pair.
@@ -118,21 +120,21 @@ char const *ini_ht_get(ini_ht_t *table, char const *key);
  * @return Previous value (if key existed), or NULL.
  * @note Thread-safe (uses mutex locking).
  */
-char const *ini_ht_set(ini_ht_t *table, char const *key, char const *value);
+INI_PUBLIC_API char const *ini_ht_set(ini_ht_t *table, char const *key, char const *value);
 
 /**
  * @brief Returns the number of entries in the table.
  * @param table Hash table to query.
  * @return Entry count.
  */
-size_t ini_ht_length(ini_ht_t *table);
+INI_PUBLIC_API size_t ini_ht_length(ini_ht_t *table);
 
 /**
  * @brief Initializes an iterator for the table.
  * @param table Hash table to iterate over.
  * @return Iterator positioned at the first entry.
  */
-ini_ht_iterator_t ini_ht_iterator(ini_ht_t *table);
+INI_PUBLIC_API ini_ht_iterator_t ini_ht_iterator(ini_ht_t *table);
 
 /**
  * @brief Advances the iterator to the next entry.
@@ -141,15 +143,6 @@ ini_ht_iterator_t ini_ht_iterator(ini_ht_t *table);
  * @param[out] value Set to the current entry's value (do not free).
  * @return 0 on success, -1 if no more entries.
  */
-ini_ht_error_t ini_ht_next(ini_ht_iterator_t *it, char **key, char **value);
-
-INI_EXTERN_C_BEGIN
-/**
- * @brief Returns the last error code.
- * @return Error code from `ini_ht_error_t`.
- * @note Thread-safe; resets after each call.
- */
-INI_PUBLIC_API ini_ht_error_t ini_ht_last_error(void);
-INI_EXTERN_C_END
+INI_PUBLIC_API ini_ht_error_t ini_ht_next(ini_ht_iterator_t *it, char **key, char **value);
 
 #endif // !INI_HASH_TABLE_H
