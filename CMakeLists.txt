@@ -51,6 +51,10 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 
 # ================ Testing ======================
 if(INIPARSER_TESTS)
+    set(INI_MUTEX_TESTS ini_mutex_tests)
+
+    set(INI_HASH_TABLE_TESTS ini_hash_table_tests)
+
     set(INI_CREATE_CONTEXT_TESTS ini_create_context_tests)
     set(INI_FREE_TESTS ini_free_tests)
     set(INI_FUNCTIONAL_TESTS ini_functional_tests)
@@ -65,38 +69,38 @@ if(INIPARSER_TESTS)
 
     enable_testing()
 
+    add_executable(${INI_MUTEX_TESTS} tests/ini_mutex_tests.c)
+    target_link_libraries(${INI_MUTEX_TESTS} PRIVATE ${PROJECT_NAME})
+
+    add_executable(${INI_HASH_TABLE_TESTS} tests/ini_hash_table_tests.c)
+    target_link_libraries(${INI_HASH_TABLE_TESTS} PRIVATE ${PROJECT_NAME})
+
     add_executable(${INI_CREATE_CONTEXT_TESTS} tests/ini_create_context_tests.c)
     target_link_libraries(${INI_CREATE_CONTEXT_TESTS} PRIVATE ${PROJECT_NAME})
-
     add_executable(${INI_FREE_TESTS} tests/ini_free_tests.c)
     target_link_libraries(${INI_FREE_TESTS} PRIVATE ${PROJECT_NAME})
-
     add_executable(${INI_FUNCTIONAL_TESTS} tests/ini_functional_tests.c)
     target_link_libraries(${INI_FUNCTIONAL_TESTS} PRIVATE ${PROJECT_NAME})
-
     add_executable(${INI_GET_VALUE_TESTS} tests/ini_get_value_tests.c)
     target_link_libraries(${INI_GET_VALUE_TESTS} PRIVATE ${PROJECT_NAME})
-
     add_executable(${INI_GOOD_TESTS} tests/ini_good_tests.c)
     target_link_libraries(${INI_GOOD_TESTS} PRIVATE ${PROJECT_NAME})
-
     add_executable(${INI_INTEGRATION_TESTS} tests/ini_integration_tests.c)
     target_link_libraries(${INI_INTEGRATION_TESTS} PRIVATE ${PROJECT_NAME})
-
     add_executable(${INI_LOAD_TESTS} tests/ini_load_tests.c)
     target_link_libraries(${INI_LOAD_TESTS} PRIVATE ${PROJECT_NAME})
-
     add_executable(${INI_PRINT_TESTS} tests/ini_print_tests.c)
     target_link_libraries(${INI_PRINT_TESTS} PRIVATE ${PROJECT_NAME})
-
     add_executable(${INI_SAVE_SECTION_VALUE_TESTS} tests/ini_save_section_value_tests.c)
     target_link_libraries(${INI_SAVE_SECTION_VALUE_TESTS} PRIVATE ${PROJECT_NAME})
-
     add_executable(${INI_SAVE_TESTS} tests/ini_save_tests.c)
     target_link_libraries(${INI_SAVE_TESTS} PRIVATE ${PROJECT_NAME})
-
     add_executable(${INI_STRESS_TESTS} tests/ini_stress_tests.c)
     target_link_libraries(${INI_STRESS_TESTS} PRIVATE ${PROJECT_NAME})
+
+    add_test(NAME ${INI_MUTEX_TESTS} COMMAND ${INI_MUTEX_TESTS})
+
+    add_test(NAME ${INI_HASH_TABLE_TESTS} COMMAND ${INI_HASH_TABLE_TESTS})
 
     # add_test(NAME ${INI_CREATE_CONTEXT_TESTS} COMMAND ${INI_CREATE_CONTEXT_TESTS})
     # add_test(NAME ${INI_FREE_TESTS} COMMAND ${INI_FREE_TESTS})
