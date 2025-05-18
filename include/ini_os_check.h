@@ -1,6 +1,8 @@
 #ifndef INI_OS_CHECK_H
 #define INI_OS_CHECK_H
 
+// ==================== Platform checks ====================
+/// @link https://stackoverflow.com/questions/5919996/how-to-detect-reliably-mac-os-x-ios-linux-windows-in-c-preprocessor
 #if defined(_WIN32) || defined(_WIN64)
     #define INI_OS_WINDOWS 1
     #define INI_OS_APPLE 0
