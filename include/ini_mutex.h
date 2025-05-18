@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 
+#include "ini_export.h"
 #include "ini_os_check.h"
 
 /// @brief Error codes returned by the INI mutex component.
@@ -10,17 +11,29 @@ typedef enum
 {
     INI_MUTEX_SUCCESS = 0,            ///< Operation succeeded.
     INI_MUTEX_ERROR,                  ///< Operation failed.
+    INI_MUTEX_ALREADY_INITIALIZED,    ///< Mutex already initialized.
 } ini_mutex_error_t;
 
 #if INI_OS_WINDOWS
     #include <windows.h>
-    typedef CRITICAL_SECTION ini_mutex_t; ///< Windows mutex type.
-    #define INI_MUTEX_INITIALIZER {0}     ///< Static initializer for Windows.
+    typedef CRITICAL_SECTION ini_mutex_base_t; ///< Windows mutex type.
 #else
     #include <pthread.h>
-    typedef pthread_mutex_t ini_mutex_t; ///< POSIX mutex type.
-    #define INI_MUTEX_INITIALIZER PTHREAD_MUTEX_INITIALIZER ///< POSIX static initializer.
+    typedef pthread_mutex_t ini_mutex_base_t; ///< POSIX mutex type.
 #endif
+
+typedef struct {
+    ini_mutex_base_t base; ///< Mutex base type (platform specific, for Windows: CRITICAL_SECTION, for POSIX: pthread_mutex_t).
+    int initialized;       ///< INI_MUTEX_INITIALIZED if initialized, INI_MUTEX_NOT_INITIALIZED if not initialized.
+    int locked;            ///< INI_MUTEX_LOCKED if locked, INI_MUTEX_UNLOCKED if not locked.
+} ini_mutex_t;
+
+#define INI_MUTEX_INITIALIZER {0, INI_MUTEX_NOT_INITIALIZED, INI_MUTEX_UNLOCKED}
+
+#define INI_MUTEX_INITIALIZED 1
+#define INI_MUTEX_NOT_INITIALIZED 0
+#define INI_MUTEX_LOCKED 1
+#define INI_MUTEX_UNLOCKED 0
 
 #ifdef DEBUG
     /**
@@ -51,7 +64,7 @@ typedef enum
  * Creates a recursive mutex that can be locked multiple times by the same thread.
  * Required for dynamic initialization (for static, use INI_MUTEX_INITIALIZER).
  */
-ini_mutex_error_t ini_mutex_init(ini_mutex_t *mutex);
+INI_PUBLIC_API ini_mutex_error_t ini_mutex_init(ini_mutex_t *mutex);
 
 /**
  * @brief Destroy a mutex.
@@ -61,7 +74,7 @@ ini_mutex_error_t ini_mutex_init(ini_mutex_t *mutex);
  * Releases all resources associated with the mutex.
  * Mutex must not be locked by any thread when destroyed.
  */
-ini_mutex_error_t ini_mutex_destroy(ini_mutex_t *mutex);
+INI_PUBLIC_API ini_mutex_error_t ini_mutex_destroy(ini_mutex_t *mutex);
 
 /**
  * @brief Lock a mutex.
@@ -71,16 +84,7 @@ ini_mutex_error_t ini_mutex_destroy(ini_mutex_t *mutex);
  * Blocks until the mutex is available.
  * For recursive mutexes, same thread can lock multiple times.
  */
-ini_mutex_error_t ini_mutex_lock(ini_mutex_t *mutex);
-
-/**
- * @brief Try to lock a mutex without blocking.
- * @param mutex Pointer to mutex to try locking.
- * @return INI_MUTEX_SUCCESS on success, INI_MUTEX_ERROR on error.
- *
- * Non-blocking version of ini_mutex_lock().
- */
-ini_mutex_error_t ini_mutex_trylock(ini_mutex_t *mutex);
+INI_PUBLIC_API ini_mutex_error_t ini_mutex_lock(ini_mutex_t *mutex);
 
 /**
  * @brief Unlock a mutex.
@@ -89,6 +93,6 @@ ini_mutex_error_t ini_mutex_trylock(ini_mutex_t *mutex);
  *
  * Releases the mutex. For recursive mutexes, must be called same number of times as lock.
  */
-ini_mutex_error_t ini_mutex_unlock(ini_mutex_t *mutex);
+INI_PUBLIC_API ini_mutex_error_t ini_mutex_unlock(ini_mutex_t *mutex);
 
 #endif // !INI_MUTEX_H
