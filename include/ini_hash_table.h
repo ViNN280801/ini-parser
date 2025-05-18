@@ -46,6 +46,8 @@ typedef enum
     INI_HT_SUCCESS = 0,          ///< Operation succeeded.
     INI_HT_MEMORY_ERROR,         ///< Memory allocation failed.
     INI_HT_MUTEX_ERROR,          ///< Mutex operation failed.
+    INI_HT_INVALID_ARGUMENT,     ///< Invalid argument (NULL pointer, etc.).
+    INI_HT_LACK_OF_MEMORY,       ///< Lack of memory (for example, when expanding the table).
 } ini_ht_error_t;
 
 /**
@@ -97,7 +99,7 @@ ini_ht_t *ini_ht_create(void);
  * @brief Destroys a hash table and frees all resources.
  * @param table Table to destroy (safe to call with NULL).
  */
-void ini_ht_destroy(ini_ht_t *table);
+ini_ht_error_t ini_ht_destroy(ini_ht_t *table);
 
 /**
  * @brief Retrieves a value by key.
@@ -139,7 +141,7 @@ ini_ht_iterator_t ini_ht_iterator(ini_ht_t *table);
  * @param[out] value Set to the current entry's value (do not free).
  * @return 0 on success, -1 if no more entries.
  */
-int ini_ht_next(ini_ht_iterator_t *it, char **key, char **value);
+ini_ht_error_t ini_ht_next(ini_ht_iterator_t *it, char **key, char **value);
 
 INI_EXTERN_C_BEGIN
 /**

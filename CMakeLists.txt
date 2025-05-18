@@ -35,6 +35,7 @@ set(INI_SOURCE_FILE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(INI_SOURCE_FILES
     ${INI_SOURCE_FILE_DIR}/ini_hash_table.c
     ${INI_SOURCE_FILE_DIR}/ini_mutex.c
+    ${INI_SOURCE_FILE_DIR}/ini_parser.c
     ${INI_SOURCE_FILE_DIR}/ini_string.c
 )
 

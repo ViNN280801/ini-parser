@@ -1,0 +1,1070 @@
+#define INI_IMPLEMENTATION
+
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "ini_parser.h"
+#include "ini_string.h"
+
+INI_PUBLIC_API char const *ini_error_to_string(ini_error_t error)
+{
+    switch (error)
+    {
+    case INI_SUCCESS:
+        return "Success";
+    case INI_FILE_NOT_FOUND:
+        return "Ini file not found";
+    case INI_FILE_EMPTY:
+        return "Ini file is empty";
+    case INI_FILE_IS_DIR:
+        return "Ini file is a directory";
+    case INI_FILE_OPEN_FAILED:
+        return "Ini file open failed";
+    case INI_FILE_BAD_FORMAT:
+        return "Ini file bad format";
+    case INI_MEMORY_ERROR:
+        return "Ini memory error";
+    case INI_SECTION_NOT_FOUND:
+        return "Ini section not found";
+    case INI_KEY_NOT_FOUND:
+        return "Ini key not found";
+    case INI_INVALID_ARGUMENT:
+        return "Ini invalid argument";
+    case INI_PLATFORM_ERROR:
+        return "Ini platform error";
+    case INI_CLOSE_FAILED:
+        return "Ini close failed";
+    default:
+        return "Unknown error";
+    }
+}
+
+INI_PUBLIC_API ini_context_t *ini_create_context()
+{
+    ini_context_t *ctx = (ini_context_t *)malloc(sizeof(ini_context_t));
+    if (!ctx)
+        return NULL;
+
+    ctx->sections = ini_ht_create();
+    if (!ctx->sections)
+    {
+        ini_ht_free(ctx);
+        return NULL;
+    }
+
+    if (ini_mutex_init(&ctx->mutex) != 0)
+    {
+        ini_ht_destroy(ctx->sections);
+        ini_ht_free(ctx);
+        return NULL;
+    }
+
+    return ctx;
+}
+
+INI_PUBLIC_API ini_error_t ini_free(ini_context_t *ctx)
+{
+    if (!ctx)
+        return INI_SUCCESS;
+
+    // Lock mutex to prevent concurrent access during cleanup
+    if (ini_mutex_lock(&ctx->mutex) != 0)
+        return INI_PLATFORM_ERROR;
+
+    // Free all nested hash tables (sections)
+    ini_ht_iterator_t it = ini_ht_iterator(ctx->sections);
+    char *section_name;
+    ini_ht_t *section_ht;
+    while (ini_ht_next(&it, &section_name, (char **)&section_ht) == 0)
+    {
+        ini_ht_destroy(section_ht);
+    }
+
+    // Free top-level hash table and context
+    ini_ht_destroy(ctx->sections);
+    ini_mutex_unlock(&ctx->mutex);
+    ini_mutex_destroy(&ctx->mutex);
+    ini_ht_free(ctx);
+
+    return INI_SUCCESS;
+}
+
+INI_PUBLIC_API ini_error_t ini_good(char const *filepath)
+{
+    if (!filepath || !*filepath)
+    {
+        return INI_INVALID_ARGUMENT;
+    }
+
+    // Check file existence and type
+#if INI_OS_WINDOWS
+    DWORD attrs = GetFileAttributesA(filepath);
+    if (attrs == INVALID_FILE_ATTRIBUTES)
+    {
+        return INI_FILE_NOT_FOUND;
+    }
+    if (attrs & FILE_ATTRIBUTE_DIRECTORY)
+    {
+        return INI_FILE_IS_DIR;
+    }
+#else
+    struct stat st;
+    if (stat(filepath, &st) != 0)
+    {
+        return INI_FILE_NOT_FOUND;
+    }
+    if (!S_ISREG(st.st_mode))
+    {
+        return S_ISDIR(st.st_mode) ? INI_FILE_IS_DIR : INI_FILE_BAD_FORMAT;
+    }
+    if (st.st_size == 0)
+    {
+        return INI_FILE_EMPTY;
+    }
+#endif
+
+    // Open file
+    FILE *file = NULL;
+#if INI_OS_WINDOWS
+    if (fopen_s(&file, filepath, "r") != 0 || !file)
+    {
+        return INI_FILE_OPEN_FAILED;
+    }
+#else
+    file = fopen(filepath, "r");
+    if (!file)
+    {
+        return INI_FILE_OPEN_FAILED;
+    }
+#endif
+
+    // Check for empty file (Windows-specific)
+#if INI_OS_WINDOWS
+    fseek(file, 0, SEEK_END);
+    long size = ftell(file);
+    rewind(file);
+    if (size == 0)
+    {
+        fclose(file);
+        return INI_FILE_EMPTY;
+    }
+#endif
+
+    // Validate INI syntax
+    char line[INI_LINE_MAX];
+    unsigned line_num = 0;
+    int in_section = -1;
+    ini_error_t error = INI_SUCCESS;
+
+    while (fgets(line, sizeof(line), file))
+    {
+        line_num++;
+        char *trimmed = line;
+
+        // Trim leading whitespace
+        while (*trimmed == ' ' || *trimmed == '\t')
+        {
+            trimmed++;
+        }
+
+        // Skip empty lines and comments
+        if (*trimmed == '\0' || *trimmed == '\n' || *trimmed == ';' || *trimmed == '#')
+        {
+            continue;
+        }
+
+        // Check line length
+        if (strlen(trimmed) >= INI_LINE_MAX - 1 && trimmed[INI_LINE_MAX - 2] != '\n')
+        {
+            error = INI_FILE_BAD_FORMAT_LINE;
+            break;
+        }
+
+        // Check for section
+        if (*trimmed == '[')
+        {
+            char *end = strchr(trimmed, ']');
+            if (!end)
+            {
+                error = INI_FILE_BAD_FORMAT_LINE;
+                break;
+            }
+            in_section = 0;
+        }
+
+        // Check for key-value pair
+        else if (in_section == 0)
+        {
+            char *eq = strchr(trimmed, '=');
+            if (!eq || eq == trimmed)
+            {
+                error = INI_FILE_BAD_FORMAT_LINE;
+                break;
+            }
+
+            // Validate value (basic checks)
+            char *value = eq + 1;
+            while (*value == ' ' || *value == '\t')
+            {
+                value++;
+            }
+
+            // Check for quoted strings
+            if (*value == '"')
+            {
+                char *end_quote = strchr(value + 1, '"');
+                if (!end_quote || (end_quote[1] != '\0' && end_quote[1] != '\n' &&
+                                   end_quote[1] != ';' && end_quote[1] != '#'))
+                {
+                    error = INI_FILE_BAD_FORMAT_LINE;
+                    break;
+                }
+            }
+        }
+        else
+        {
+            error = INI_FILE_BAD_FORMAT_LINE;
+            break;
+        }
+    }
+
+    if (fclose(file) != 0 && error == INI_SUCCESS)
+        error = INI_CLOSE_FAILED;
+
+    return error;
+}
+
+INI_PUBLIC_API ini_error_t ini_load(ini_context_t *ctx, char const *filepath)
+{
+    if (!filepath)
+    {
+        return INI_INVALID_ARGUMENT;
+    }
+
+    // Validate file first
+    ini_error_t err = ini_good(filepath);
+    if (err != INI_SUCCESS)
+    {
+        return err;
+    }
+
+    // Create context if NULL
+    ini_context_t *ctx_to_use = ctx;
+    int need_to_free_on_error = 0;
+
+    if (!ctx_to_use)
+    {
+        ctx_to_use = ini_create_context();
+        if (!ctx_to_use)
+        {
+            return INI_MEMORY_ERROR;
+        }
+        need_to_free_on_error = 1;
+    }
+    else
+    {
+        // Clear existing context by freeing all section hash tables
+        if (ini_mutex_lock(&ctx_to_use->mutex) != 0)
+        {
+            return INI_PLATFORM_ERROR;
+        }
+
+        ini_ht_iterator_t it = ini_ht_iterator(ctx_to_use->sections);
+        char *section_name;
+        ini_ht_t *section_ht;
+
+        while (ini_ht_next(&it, &section_name, (char **)&section_ht) == INI_HT_SUCCESS)
+        {
+            ini_ht_destroy(section_ht);
+        }
+
+        // Reset the top-level hash table
+        ini_ht_destroy(ctx_to_use->sections);
+        ctx_to_use->sections = ini_ht_create();
+
+        if (!ctx_to_use->sections)
+        {
+            ini_mutex_unlock(&ctx_to_use->mutex);
+            return INI_MEMORY_ERROR;
+        }
+
+        ini_mutex_unlock(&ctx_to_use->mutex);
+    }
+
+    // Open the file
+    FILE *file;
+#if INI_OS_WINDOWS
+    if (fopen_s(&file, filepath, "r") != 0 || !file)
+    {
+        if (need_to_free_on_error)
+        {
+            ini_free(ctx_to_use);
+        }
+        return INI_FILE_OPEN_FAILED;
+    }
+#else
+    file = fopen(filepath, "r");
+    if (!file)
+    {
+        if (need_to_free_on_error)
+        {
+            ini_free(ctx_to_use);
+        }
+        return INI_FILE_OPEN_FAILED;
+    }
+#endif
+
+    // Check for UTF-8 BOM
+    unsigned char bom[3];
+    size_t bytes_read = fread(bom, 1, 3, file);
+
+    if (bytes_read < 3 || bom[0] != 0xEF || bom[1] != 0xBB || bom[2] != 0xBF)
+    {
+        rewind(file);
+    }
+
+    // Lock context for thread safety
+    if (ini_mutex_lock(&ctx_to_use->mutex) != 0)
+    {
+        fclose(file);
+        if (need_to_free_on_error)
+        {
+            ini_free(ctx_to_use);
+        }
+        return INI_PLATFORM_ERROR;
+    }
+
+    // Parse the INI file
+    char line[INI_LINE_MAX];
+    char current_section[INI_LINE_MAX] = ""; // Empty string means global section
+    ini_ht_t *current_section_ht = NULL;
+    int line_num = 0;
+
+    while (fgets(line, sizeof(line), file))
+    {
+        line_num++;
+        char *trimmed = line;
+
+        // Trim leading whitespace
+        while (*trimmed && (*trimmed == ' ' || *trimmed == '\t'))
+        {
+            trimmed++;
+        }
+
+        // Skip empty lines and comments
+        if (*trimmed == '\0' || *trimmed == '\n' || *trimmed == '\r' ||
+            *trimmed == ';' || *trimmed == '#')
+        {
+            continue;
+        }
+
+        // Handle section header
+        if (*trimmed == '[')
+        {
+            char *end = strchr(trimmed, ']');
+            if (!end)
+            {
+                fclose(file);
+                ini_mutex_unlock(&ctx_to_use->mutex);
+                if (need_to_free_on_error)
+                {
+                    ini_free(ctx_to_use);
+                }
+                return INI_FILE_BAD_FORMAT_LINE;
+            }
+
+            *end = '\0';
+            strncpy(current_section, trimmed + 1, INI_LINE_MAX - 1);
+            current_section[INI_LINE_MAX - 1] = '\0';
+
+            // Get or create section hash table
+            current_section_ht = (ini_ht_t *)ini_ht_get(ctx_to_use->sections, current_section);
+
+            if (!current_section_ht)
+            {
+                // Create new section hash table
+                current_section_ht = ini_ht_create();
+                if (!current_section_ht)
+                {
+                    fclose(file);
+                    ini_mutex_unlock(&ctx_to_use->mutex);
+                    if (need_to_free_on_error)
+                    {
+                        ini_free(ctx_to_use);
+                    }
+                    return INI_MEMORY_ERROR;
+                }
+
+                // Add it to the sections hash table
+                ini_ht_set(ctx_to_use->sections, current_section, (char *)current_section_ht);
+            }
+        }
+        // Handle key-value pair
+        else if (strchr(trimmed, '='))
+        {
+            char *eq = strchr(trimmed, '=');
+            if (!eq)
+            {
+                continue; // Shouldn't happen due to the check above
+            }
+
+            // Split key and value
+            *eq = '\0';
+            char *key = trimmed;
+            char *value = eq + 1;
+
+            // Trim key
+            char *key_end = eq - 1;
+            while (key_end >= key && (*key_end == ' ' || *key_end == '\t'))
+            {
+                *key_end-- = '\0';
+            }
+
+            // Trim value
+            while (*value && (*value == ' ' || *value == '\t'))
+            {
+                value++;
+            }
+
+            // Remove trailing whitespace and newlines from value
+            char *value_end = value + strlen(value) - 1;
+            while (value_end >= value &&
+                   (*value_end == ' ' || *value_end == '\t' ||
+                    *value_end == '\n' || *value_end == '\r'))
+            {
+                *value_end-- = '\0';
+            }
+
+            // Handle quoted values
+            if (*value == '"' && value_end >= value && *value_end == '"')
+            {
+                value++;
+                *value_end = '\0';
+            }
+
+            // Skip empty keys
+            if (*key == '\0')
+            {
+                continue;
+            }
+
+            // If we have no current section, create the default/global section
+            if (!current_section_ht)
+            {
+                current_section_ht = ini_ht_create();
+                if (!current_section_ht)
+                {
+                    fclose(file);
+                    ini_mutex_unlock(&ctx_to_use->mutex);
+                    if (need_to_free_on_error)
+                    {
+                        ini_free(ctx_to_use);
+                    }
+                    return INI_MEMORY_ERROR;
+                }
+
+                // Add it to the sections hash table with empty string key
+                ini_ht_set(ctx_to_use->sections, "", (char *)current_section_ht);
+            }
+
+            // Add/update key-value pair in current section
+            ini_ht_set(current_section_ht, key, value);
+        }
+    }
+
+    fclose(file);
+    ini_mutex_unlock(&ctx_to_use->mutex);
+    return INI_SUCCESS;
+}
+
+/**
+ * @brief Gets a value from a section in the INI context.
+ *
+ * @param ctx Context to query
+ * @param section Section name (empty string for global keys)
+ * @param key Key name to retrieve
+ * @param[out] value Output value (caller must free)
+ * @return ini_error_t Error code
+ */
+INI_PUBLIC_API ini_error_t ini_get_value(ini_context_t const *ctx,
+                                         char const *section,
+                                         char const *key,
+                                         char **value)
+{
+    if (!ctx || !key || !value)
+    {
+        return INI_INVALID_ARGUMENT;
+    }
+
+    // Default to empty string section if NULL
+    if (!section)
+    {
+        section = "";
+    }
+
+    // Lock context for thread safety
+    if (ini_mutex_lock((ini_mutex_t *)&ctx->mutex) != 0)
+    {
+        return INI_PLATFORM_ERROR;
+    }
+
+    // Get the section hash table
+    ini_ht_t *section_ht = (ini_ht_t *)ini_ht_get(ctx->sections, section);
+    if (!section_ht)
+    {
+        ini_mutex_unlock((ini_mutex_t *)&ctx->mutex);
+        return INI_SECTION_NOT_FOUND;
+    }
+
+    // Get the value from the section
+    char const *found_value = ini_ht_get(section_ht, key);
+    if (!found_value)
+    {
+        ini_mutex_unlock((ini_mutex_t *)&ctx->mutex);
+        return INI_KEY_NOT_FOUND;
+    }
+
+    // Make a copy for the caller
+    *value = ini_strdup(found_value);
+    if (!*value)
+    {
+        ini_mutex_unlock((ini_mutex_t *)&ctx->mutex);
+        return INI_MEMORY_ERROR;
+    }
+
+    ini_mutex_unlock((ini_mutex_t *)&ctx->mutex);
+    return INI_SUCCESS;
+}
+
+INI_PUBLIC_API ini_error_t ini_save(ini_context_t const *ctx, char const *filepath)
+{
+    if (!ctx || !filepath)
+    {
+        return INI_INVALID_ARGUMENT;
+    }
+
+    // Open file for writing
+    FILE *file;
+#if INI_OS_WINDOWS
+    if (fopen_s(&file, filepath, "w") != 0 || !file)
+    {
+        return INI_FILE_OPEN_FAILED;
+    }
+#else
+    file = fopen(filepath, "w");
+    if (!file)
+    {
+        return INI_FILE_OPEN_FAILED;
+    }
+#endif
+
+    // Lock context for thread safety
+    if (ini_mutex_lock((ini_mutex_t *)&ctx->mutex) != 0)
+    {
+        fclose(file);
+        return INI_PLATFORM_ERROR;
+    }
+
+    // Iterate through all sections
+    ini_ht_iterator_t sections_it = ini_ht_iterator((ini_ht_t *)ctx->sections);
+    char *section_name;
+    ini_ht_t *section_ht;
+    int first_section = 1;
+
+    while (ini_ht_next(&sections_it, &section_name, (char **)&section_ht) == INI_HT_SUCCESS)
+    {
+        // Skip empty global section if it has no keys
+        if (*section_name == '\0' && ini_ht_length(section_ht) == 0)
+        {
+            continue;
+        }
+
+        // Add newline between sections (except first)
+        if (!first_section)
+        {
+            fprintf(file, "\n");
+        }
+        first_section = 0;
+
+        // Write section header (except for global section)
+        if (*section_name != '\0')
+        {
+            fprintf(file, "[%s]\n", section_name);
+        }
+
+        // Write key-value pairs
+        ini_ht_iterator_t pairs_it = ini_ht_iterator(section_ht);
+        char *key;
+        char *value;
+
+        while (ini_ht_next(&pairs_it, &key, &value) == INI_HT_SUCCESS)
+        {
+            // Determine if value needs quotes
+            int need_quotes = 0;
+            if (strchr(value, ' ') || strchr(value, '\t') ||
+                strchr(value, ';') || strchr(value, '#'))
+            {
+                need_quotes = 1;
+            }
+
+            if (need_quotes)
+            {
+                fprintf(file, "%s=\"%s\"\n", key, value);
+            }
+            else
+            {
+                fprintf(file, "%s=%s\n", key, value);
+            }
+        }
+    }
+
+    ini_mutex_unlock((ini_mutex_t *)&ctx->mutex);
+    if (fclose(file) != 0)
+    {
+        return INI_CLOSE_FAILED;
+    }
+
+    return INI_SUCCESS;
+}
+
+INI_PUBLIC_API ini_error_t ini_save_section_value(ini_context_t const *ctx,
+                                                  char const *filepath,
+                                                  char const *section,
+                                                  char const *key)
+{
+    if (!ctx || !filepath || !section)
+    {
+        return INI_INVALID_ARGUMENT;
+    }
+
+    // Lock context for thread safety
+    if (ini_mutex_lock((ini_mutex_t *)&ctx->mutex) != 0)
+    {
+        return INI_PLATFORM_ERROR;
+    }
+
+    // Find section
+    ini_ht_t *section_ht = (ini_ht_t *)ini_ht_get(ctx->sections, section);
+    if (!section_ht)
+    {
+        ini_mutex_unlock((ini_mutex_t *)&ctx->mutex);
+        return INI_SECTION_NOT_FOUND;
+    }
+
+    // If key specified, check if it exists
+    if (key)
+    {
+        char const *value = ini_ht_get(section_ht, key);
+        if (!value)
+        {
+            ini_mutex_unlock((ini_mutex_t *)&ctx->mutex);
+            return INI_KEY_NOT_FOUND;
+        }
+    }
+
+    // Check if file exists
+    FILE *existing_file = NULL;
+    int file_exists = 0;
+
+#if INI_OS_WINDOWS
+    if (_access(filepath, F_OK) == 0)
+    {
+        file_exists = 1;
+    }
+#else
+    if (access(filepath, F_OK) == 0)
+    {
+        file_exists = 1;
+    }
+#endif
+
+    // Create a temporary file for output
+    char temp_path[1024];
+    FILE *temp_file;
+
+#if INI_OS_WINDOWS
+    // Create temporary file path
+    if (tmpnam_s(temp_path, sizeof(temp_path)) != 0)
+    {
+        ini_mutex_unlock((ini_mutex_t *)&ctx->mutex);
+        return INI_FILE_OPEN_FAILED;
+    }
+
+    if (fopen_s(&temp_file, temp_path, "w") != 0 || !temp_file)
+    {
+        ini_mutex_unlock((ini_mutex_t *)&ctx->mutex);
+        return INI_FILE_OPEN_FAILED;
+    }
+#else
+    // On Unix, use tmpfile() which automatically handles cleanup
+    temp_file = tmpfile();
+    if (!temp_file)
+    {
+        ini_mutex_unlock((ini_mutex_t *)&ctx->mutex);
+        return INI_FILE_OPEN_FAILED;
+    }
+#endif
+
+    // If file exists, read it and update the specific section
+    if (file_exists)
+    {
+#if INI_OS_WINDOWS
+        if (fopen_s(&existing_file, filepath, "r") != 0 || !existing_file)
+        {
+            fclose(temp_file);
+            ini_mutex_unlock((ini_mutex_t *)&ctx->mutex);
+            return INI_FILE_OPEN_FAILED;
+        }
+#else
+        existing_file = fopen(filepath, "r");
+        if (!existing_file)
+        {
+            fclose(temp_file);
+            ini_mutex_unlock((ini_mutex_t *)&ctx->mutex);
+            return INI_FILE_OPEN_FAILED;
+        }
+#endif
+
+        char line[INI_LINE_MAX];
+        char current_section[INI_LINE_MAX] = "";
+        int in_target_section = 0;
+        int target_section_written = 0;
+
+        while (fgets(line, sizeof(line), existing_file))
+        {
+            // Check if line is a section
+            if (line[0] == '[')
+            {
+                char *end = strchr(line, ']');
+                if (end)
+                {
+                    *end = '\0';
+                    strcpy(current_section, line + 1);
+                    *end = ']';
+
+                    // Check if entering the target section
+                    if (strcmp(current_section, section) == 0)
+                    {
+                        in_target_section = 1;
+                        target_section_written = 1;
+
+                        // Write section header
+                        fprintf(temp_file, "%s", line);
+
+                        // If key is NULL, write all keys from the section
+                        if (!key)
+                        {
+                            ini_ht_iterator_t it = ini_ht_iterator(section_ht);
+                            char *k, *v;
+
+                            while (ini_ht_next(&it, &k, &v) == INI_HT_SUCCESS)
+                            {
+                                int need_quotes = 0;
+                                if (strchr(v, ' ') || strchr(v, '\t') ||
+                                    strchr(v, ';') || strchr(v, '#'))
+                                {
+                                    need_quotes = 1;
+                                }
+
+                                if (need_quotes)
+                                {
+                                    fprintf(temp_file, "%s=\"%s\"\n", k, v);
+                                }
+                                else
+                                {
+                                    fprintf(temp_file, "%s=%s\n", k, v);
+                                }
+                            }
+
+                            // Skip processing until next section
+                            in_target_section = 0;
+                        }
+                        continue;
+                    }
+                    else
+                    {
+                        // Exiting the target section
+                        in_target_section = 0;
+                    }
+                }
+            }
+            // Handle key-value pairs in target section
+            else if (in_target_section && key && strchr(line, '='))
+            {
+                char *eq = strchr(line, '=');
+                if (eq)
+                {
+                    *eq = '\0';
+                    char *line_key = line;
+
+                    // Trim key
+                    while (*line_key && (*line_key == ' ' || *line_key == '\t'))
+                    {
+                        line_key++;
+                    }
+
+                    char *end = eq - 1;
+                    while (end > line_key && (*end == ' ' || *end == '\t'))
+                    {
+                        *end-- = '\0';
+                    }
+
+                    // If this is our target key, replace it
+                    if (strcmp(line_key, key) == 0)
+                    {
+                        // Get value from context
+                        char const *value = ini_ht_get(section_ht, key);
+
+                        // Determine if quotes needed
+                        int need_quotes = 0;
+                        if (strchr(value, ' ') || strchr(value, '\t') ||
+                            strchr(value, ';') || strchr(value, '#'))
+                        {
+                            need_quotes = 1;
+                        }
+
+                        if (need_quotes)
+                        {
+                            fprintf(temp_file, "%s=\"%s\"\n", key, value);
+                        }
+                        else
+                        {
+                            fprintf(temp_file, "%s=%s\n", key, value);
+                        }
+                        continue;
+                    }
+
+                    // Restore the equals sign for other keys
+                    *eq = '=';
+                }
+            }
+
+            // Write unmodified line
+            fprintf(temp_file, "%s", line);
+        }
+
+        fclose(existing_file);
+
+        // If section wasn't found in file, append it
+        if (!target_section_written)
+        {
+            // Add newline before section if needed
+            if (ftell(temp_file) > 0)
+            {
+                fprintf(temp_file, "\n");
+            }
+
+            // Write section header
+            fprintf(temp_file, "[%s]\n", section);
+
+            // Write keys
+            if (key)
+            {
+                // Write specific key
+                char const *value = ini_ht_get(section_ht, key);
+                int need_quotes = 0;
+                if (strchr(value, ' ') || strchr(value, '\t') ||
+                    strchr(value, ';') || strchr(value, '#'))
+                {
+                    need_quotes = 1;
+                }
+
+                if (need_quotes)
+                {
+                    fprintf(temp_file, "%s=\"%s\"\n", key, value);
+                }
+                else
+                {
+                    fprintf(temp_file, "%s=%s\n", key, value);
+                }
+            }
+            else
+            {
+                // Write all keys
+                ini_ht_iterator_t it = ini_ht_iterator(section_ht);
+                char *k, *v;
+
+                while (ini_ht_next(&it, &k, &v) == INI_HT_SUCCESS)
+                {
+                    int need_quotes = 0;
+                    if (strchr(v, ' ') || strchr(v, '\t') ||
+                        strchr(v, ';') || strchr(v, '#'))
+                    {
+                        need_quotes = 1;
+                    }
+
+                    if (need_quotes)
+                    {
+                        fprintf(temp_file, "%s=\"%s\"\n", k, v);
+                    }
+                    else
+                    {
+                        fprintf(temp_file, "%s=%s\n", k, v);
+                    }
+                }
+            }
+        }
+    }
+    else
+    {
+        // File doesn't exist, create it with just this section
+        fprintf(temp_file, "[%s]\n", section);
+
+        // Write keys
+        if (key)
+        {
+            // Write specific key
+            char const *value = ini_ht_get(section_ht, key);
+            int need_quotes = 0;
+            if (strchr(value, ' ') || strchr(value, '\t') ||
+                strchr(value, ';') || strchr(value, '#'))
+            {
+                need_quotes = 1;
+            }
+
+            if (need_quotes)
+            {
+                fprintf(temp_file, "%s=\"%s\"\n", key, value);
+            }
+            else
+            {
+                fprintf(temp_file, "%s=%s\n", key, value);
+            }
+        }
+        else
+        {
+            // Write all keys
+            ini_ht_iterator_t it = ini_ht_iterator(section_ht);
+            char *k, *v;
+
+            while (ini_ht_next(&it, &k, &v) == INI_HT_SUCCESS)
+            {
+                int need_quotes = 0;
+                if (strchr(v, ' ') || strchr(v, '\t') ||
+                    strchr(v, ';') || strchr(v, '#'))
+                {
+                    need_quotes = 1;
+                }
+
+                if (need_quotes)
+                {
+                    fprintf(temp_file, "%s=\"%s\"\n", k, v);
+                }
+                else
+                {
+                    fprintf(temp_file, "%s=%s\n", k, v);
+                }
+            }
+        }
+    }
+
+    // Close temporary file and flush to disk
+    fflush(temp_file);
+
+#if INI_OS_WINDOWS
+    fclose(temp_file);
+
+    // Remove existing file and rename temp file
+    if (file_exists && remove(filepath) != 0)
+    {
+        remove(temp_path);
+        ini_mutex_unlock((ini_mutex_t *)&ctx->mutex);
+        return INI_FILE_OPEN_FAILED;
+    }
+
+    if (rename(temp_path, filepath) != 0)
+    {
+        remove(temp_path);
+        ini_mutex_unlock((ini_mutex_t *)&ctx->mutex);
+        return INI_FILE_OPEN_FAILED;
+    }
+#else
+    // On Unix, rewind the temp file and copy to real file
+    rewind(temp_file);
+
+    FILE *dest_file = fopen(filepath, "w");
+    if (!dest_file)
+    {
+        fclose(temp_file);
+        ini_mutex_unlock((ini_mutex_t *)&ctx->mutex);
+        return INI_FILE_OPEN_FAILED;
+    }
+
+    char buffer[INI_LINE_MAX];
+    while (fgets(buffer, sizeof(buffer), temp_file))
+    {
+        fputs(buffer, dest_file);
+    }
+
+    fclose(temp_file);
+    fclose(dest_file);
+#endif
+
+    ini_mutex_unlock((ini_mutex_t *)&ctx->mutex);
+    return INI_SUCCESS;
+}
+
+INI_PUBLIC_API ini_error_t ini_print(FILE *stream, ini_context_t const *ctx)
+{
+    if (!stream || !ctx)
+    {
+        return INI_INVALID_ARGUMENT;
+    }
+
+    // Lock context for thread safety
+    if (ini_mutex_lock((ini_mutex_t *)&ctx->mutex) != 0)
+    {
+        return INI_PLATFORM_ERROR;
+    }
+
+    // Iterate through all sections
+    ini_ht_iterator_t sections_it = ini_ht_iterator((ini_ht_t *)ctx->sections);
+    char *section_name;
+    ini_ht_t *section_ht;
+
+    while (ini_ht_next(&sections_it, &section_name, (char **)&section_ht) == INI_HT_SUCCESS)
+    {
+        // Print section header (except for global section)
+        if (*section_name != '\0')
+        {
+            if (fprintf(stream, "[%s]\n", section_name) < 0)
+            {
+                ini_mutex_unlock((ini_mutex_t *)&ctx->mutex);
+                return INI_PRINT_ERROR;
+            }
+        }
+        else
+        {
+            if (fprintf(stream, "[Global]\n") < 0)
+            {
+                ini_mutex_unlock((ini_mutex_t *)&ctx->mutex);
+                return INI_PRINT_ERROR;
+            }
+        }
+
+        // Print key-value pairs
+        ini_ht_iterator_t pairs_it = ini_ht_iterator(section_ht);
+        char *key;
+        char *value;
+
+        while (ini_ht_next(&pairs_it, &key, &value) == INI_HT_SUCCESS)
+        {
+            if (fprintf(stream, "  %s = %s\n", key, value) < 0)
+            {
+                ini_mutex_unlock((ini_mutex_t *)&ctx->mutex);
+                return INI_PRINT_ERROR;
+            }
+        }
+
+        if (fprintf(stream, "\n") < 0)
+        {
+            ini_mutex_unlock((ini_mutex_t *)&ctx->mutex);
+            return INI_PRINT_ERROR;
+        }
+    }
+
+    ini_mutex_unlock((ini_mutex_t *)&ctx->mutex);
+    return INI_SUCCESS;
+}
