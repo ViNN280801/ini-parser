@@ -495,7 +495,7 @@ void test_ht_next_empty_table()
     assert(table != NULL);
     ini_ht_iterator_t it = ini_ht_iterator(table);
     char *key, *value;
-    assert(ini_ht_next(&it, &key, &value) == INI_HT_SUCCESS);
+    assert(ini_ht_next(&it, &key, &value) == INI_HT_ITERATOR_END);
     ini_ht_destroy(table);
     print_success("test_ht_next_empty_table passed\n");
 }
@@ -585,7 +585,7 @@ void test_ht_next_no_more_entries()
     ini_ht_iterator_t it = ini_ht_iterator(table);
     char *key, *value;
     assert(ini_ht_next(&it, &key, &value) == INI_HT_SUCCESS);
-    assert(ini_ht_next(&it, &key, &value) == INI_HT_SUCCESS);
+    assert(ini_ht_next(&it, &key, &value) == INI_HT_ITERATOR_END);
     ini_ht_destroy(table);
     print_success("test_ht_next_no_more_entries passed\n");
 }
@@ -624,6 +624,68 @@ void test_ht_set_overwrite_null()
     assert(ini_ht_set(table, "key", NULL) == NULL);
     ini_ht_destroy(table);
     print_success("test_ht_set_overwrite_null passed\n");
+}
+
+void test_ht_comprehensive_workflow()
+{
+    // 1. Create table
+    ini_ht_t *table = ini_ht_create();
+    assert(table != NULL);
+    assert(table->length == 0);
+    assert(table->capacity == INI_HT_INITIAL_CAPACITY);
+    assert(table->mutex.initialized == INI_MUTEX_INITIALIZED);
+
+    // 2. Add different data
+    assert(ini_ht_set(table, "key1", "value1") != NULL);           // Regular key
+    assert(ini_ht_set(table, "ключ", "значение ") != NULL);        // UTF-8
+    assert(ini_ht_set(table, "key\0null", "value\0null") != NULL); // With null-bytes
+    assert(ini_ht_length(table) == 3);
+
+    // 3. Check data retrieval
+    assert(strcmp(ini_ht_get(table, "key1"), "value1") == 0);
+
+    char const *utf8_key = "ключ😊";
+    char const *got_value = ini_ht_get(table, utf8_key);
+    if (got_value)
+        assert(strcmp(got_value, "значение★") == 0);
+
+    assert(ini_ht_set(table, utf8_key, "new_value") != NULL);
+    assert(strcmp(ini_ht_get(table, utf8_key), "new_value") == 0);
+
+    assert(ini_ht_get(table, "nonexistent") == NULL);
+
+    // 4. Update value
+    assert(ini_ht_set(table, "key1", "new_value") != NULL);
+    assert(strcmp(ini_ht_get(table, "key1"), "new_value") == 0);
+
+    // 5. Table expansion
+    for (int i = 0; i < 20; i++)
+    {
+        char key[20], value[20];
+        sprintf(key, "exp_key%d", i);
+        sprintf(value, "exp_val%d", i);
+        assert(ini_ht_set(table, key, value) != NULL);
+    }
+    assert(table->capacity > INI_HT_INITIAL_CAPACITY);
+
+    // 6. Iterate through table
+    ini_ht_iterator_t it = ini_ht_iterator(table);
+    char *key, *value;
+    size_t count = 0;
+    while (ini_ht_next(&it, &key, &value) == INI_HT_SUCCESS &&
+           key != NULL &&
+           value != NULL)
+    {
+        ++count;
+    }
+    assert(count == 24); // 3 original + 20 new + 1 utf8
+
+    // 7. Check length after iteration
+    assert(ini_ht_length(table) == 24);
+
+    // 8. Cleanup
+    assert(ini_ht_destroy(table) == INI_HT_SUCCESS);
+    print_success("test_ht_comprehensive_workflow passed\n");
 }
 
 int main()
@@ -696,6 +758,9 @@ int main()
     test_ht_next_unlock_fail();
     test_ht_next_partial_fill();
     test_ht_next_no_more_entries();
+
+    /* Test for ini_ht_comprehensive_workflow() function */
+    test_ht_comprehensive_workflow();
 
     print_success("All ini_hash_table tests passed!\n\n");
     __helper_close_log_file();
