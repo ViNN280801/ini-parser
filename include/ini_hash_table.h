@@ -50,6 +50,7 @@ typedef enum
     INI_HT_MUTEX_ERROR,          ///< Mutex operation failed.
     INI_HT_INVALID_ARGUMENT,     ///< Invalid argument (NULL pointer, etc.).
     INI_HT_LACK_OF_MEMORY,       ///< Lack of memory (for example, when expanding the table).
+    INI_HT_ITERATOR_END,         ///< Iterator has reached the end of the table.
 } ini_ht_error_t;
 
 /**

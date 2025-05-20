@@ -178,7 +178,7 @@ INI_PUBLIC_API ini_ht_error_t ini_ht_next(ini_ht_iterator_t *it, char **key, cha
     if (ini_mutex_unlock((ini_mutex_t *)&it->_table->mutex) != 0)
         return INI_HT_MUTEX_ERROR;
 
-    return INI_HT_SUCCESS;
+    return INI_HT_ITERATOR_END;
 }
 
 ini_ht_error_t __ini_details_ht_set_entry(ini_ht_key_value_t *entries, size_t capacity,
