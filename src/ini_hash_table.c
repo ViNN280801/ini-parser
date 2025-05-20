@@ -5,7 +5,14 @@
 #include "ini_hash_table.h"
 #include "ini_string.h"
 
-uint64_t hash_key(char const *key)
+ini_ht_error_t __ini_details_ht_set_entry(ini_ht_key_value_t *entries, size_t capacity,
+                                          char const *key, char const *value, size_t *plength);
+ini_ht_error_t __ini_details_ht_expand(ini_ht_t *table);
+ini_ht_key_value_t *__ini_details_ht_get_entry(ini_ht_key_value_t *entries,
+                                               size_t capacity,
+                                               char const *key);
+
+INI_PUBLIC_API uint64_t hash_key(char const *key)
 {
     uint64_t hash = 14695981039346656037ULL;
 
@@ -22,7 +29,7 @@ uint64_t hash_key(char const *key)
     return hash;
 }
 
-ini_ht_t *ini_ht_create(void)
+INI_PUBLIC_API ini_ht_t *ini_ht_create(void)
 {
     ini_ht_t *table = malloc(sizeof(ini_ht_t));
     if (!table)
@@ -50,7 +57,7 @@ ini_ht_t *ini_ht_create(void)
     return table;
 }
 
-ini_ht_error_t ini_ht_destroy(ini_ht_t *table)
+INI_PUBLIC_API ini_ht_error_t ini_ht_destroy(ini_ht_t *table)
 {
     if (!table)
         return INI_HT_MEMORY_ERROR;
@@ -75,24 +82,7 @@ ini_ht_error_t ini_ht_destroy(ini_ht_t *table)
     return INI_HT_SUCCESS;
 }
 
-ini_ht_key_value_t *_impl_ht_get_entry(ini_ht_key_value_t *entries, size_t capacity, char const *key)
-{
-    uint64_t hash = hash_key(key);
-    size_t index = (size_t)(hash & (uint64_t)(capacity - 1));
-
-    while (entries[index].key != NULL)
-    {
-        if (strcmp(key, entries[index].key) == 0)
-        {
-            return &entries[index];
-        }
-        index = (index + 1) % capacity;
-    }
-
-    return NULL;
-}
-
-char const *ini_ht_get(ini_ht_t *table, char const *key)
+INI_PUBLIC_API char const *ini_ht_get(ini_ht_t *table, char const *key)
 {
     if (!table || !key)
         return NULL;
@@ -100,15 +90,99 @@ char const *ini_ht_get(ini_ht_t *table, char const *key)
     if (ini_mutex_lock(&table->mutex) != 0)
         return NULL;
 
-    ini_ht_key_value_t *entry = _impl_ht_get_entry(table->entries, table->capacity, key);
+    ini_ht_key_value_t *entry = __ini_details_ht_get_entry(table->entries, table->capacity, key);
     if (ini_mutex_unlock(&table->mutex) != 0)
         return NULL;
 
     return entry ? entry->value : NULL;
 }
 
-ini_ht_error_t _impl_ht_set_entry(ini_ht_key_value_t *entries, size_t capacity,
-                                  char const *key, char const *value, size_t *plength)
+INI_PUBLIC_API char const *ini_ht_set(ini_ht_t *table, char const *key, char const *value)
+{
+    if (!table || !key || !value)
+        return NULL;
+
+    if (ini_mutex_lock(&table->mutex) != 0)
+        return NULL;
+
+    if (table->length >= table->capacity / 2)
+    {
+        if (__ini_details_ht_expand(table) != 0)
+        {
+            if (ini_mutex_unlock(&table->mutex) != 0)
+                return NULL;
+            return NULL;
+        }
+    }
+
+    if (__ini_details_ht_set_entry(table->entries, table->capacity, key, value, &table->length) != 0)
+    {
+        if (ini_mutex_unlock(&table->mutex) != 0)
+            return NULL;
+        return NULL;
+    }
+
+    if (ini_mutex_unlock(&table->mutex) != 0)
+        return NULL;
+
+    return key;
+}
+
+INI_PUBLIC_API size_t ini_ht_length(ini_ht_t *table)
+{
+    if (!table)
+        return SIZE_MAX;
+
+    if (ini_mutex_lock(&table->mutex) != 0)
+        return SIZE_MAX;
+
+    size_t len = table->length;
+    if (ini_mutex_unlock(&table->mutex) != 0)
+        return SIZE_MAX;
+
+    return len;
+}
+
+INI_PUBLIC_API ini_ht_iterator_t ini_ht_iterator(ini_ht_t *table)
+{
+    ini_ht_iterator_t it = {0};
+    if (table)
+    {
+        it._table = table;
+        it._index = 0;
+    }
+    return it;
+}
+
+INI_PUBLIC_API ini_ht_error_t ini_ht_next(ini_ht_iterator_t *it, char **key, char **value)
+{
+    if (!it || !it->_table || !key || !value)
+        return INI_HT_INVALID_ARGUMENT;
+
+    if (ini_mutex_lock((ini_mutex_t *)&it->_table->mutex) != 0)
+        return INI_HT_MUTEX_ERROR;
+
+    while (it->_index < it->_table->capacity)
+    {
+        size_t i = it->_index++;
+        if (it->_table->entries[i].key)
+        {
+            *key = it->_table->entries[i].key;
+            *value = it->_table->entries[i].value;
+            if (ini_mutex_unlock((ini_mutex_t *)&it->_table->mutex) != 0)
+                return INI_HT_MUTEX_ERROR;
+            return INI_HT_SUCCESS;
+        }
+    }
+
+    if (ini_mutex_unlock((ini_mutex_t *)&it->_table->mutex) != 0)
+        return INI_HT_MUTEX_ERROR;
+
+    return INI_HT_SUCCESS;
+}
+
+ini_ht_error_t __ini_details_ht_set_entry(ini_ht_key_value_t *entries, size_t capacity,
+                                          char const *key, char const *value, size_t *plength)
 {
     uint64_t hash = hash_key(key);
     size_t index = (size_t)(hash & (uint64_t)(capacity - 1));
@@ -147,7 +221,7 @@ ini_ht_error_t _impl_ht_set_entry(ini_ht_key_value_t *entries, size_t capacity,
     return INI_HT_SUCCESS;
 }
 
-ini_ht_error_t ht_expand(ini_ht_t *table)
+ini_ht_error_t __ini_details_ht_expand(ini_ht_t *table)
 {
     size_t new_capacity = table->capacity * 2;
     if (new_capacity < table->capacity || new_capacity > SIZE_MAX / sizeof(ini_ht_key_value_t))
@@ -161,8 +235,8 @@ ini_ht_error_t ht_expand(ini_ht_t *table)
     {
         if (table->entries[i].key)
         {
-            if (_impl_ht_set_entry(new_entries, new_capacity, table->entries[i].key,
-                                   table->entries[i].value, NULL) != 0)
+            if (__ini_details_ht_set_entry(new_entries, new_capacity, table->entries[i].key,
+                                           table->entries[i].value, NULL) != 0)
             {
                 for (size_t j = 0; j < new_capacity; j++)
                 {
@@ -194,86 +268,21 @@ ini_ht_error_t ht_expand(ini_ht_t *table)
     return INI_HT_SUCCESS;
 }
 
-char const *ini_ht_set(ini_ht_t *table, char const *key, char const *value)
+ini_ht_key_value_t *__ini_details_ht_get_entry(ini_ht_key_value_t *entries,
+                                               size_t capacity,
+                                               char const *key)
 {
-    if (!table || !key || !value)
-        return NULL;
+    uint64_t hash = hash_key(key);
+    size_t index = (size_t)(hash & (uint64_t)(capacity - 1));
 
-    if (ini_mutex_lock(&table->mutex) != 0)
-        return NULL;
-
-    if (table->length >= table->capacity / 2)
+    while (entries[index].key != NULL)
     {
-        if (ht_expand(table) != 0)
+        if (strcmp(key, entries[index].key) == 0)
         {
-            if (ini_mutex_unlock(&table->mutex) != 0)
-                return NULL;
-            return NULL;
+            return &entries[index];
         }
+        index = (index + 1) % capacity;
     }
 
-    if (_impl_ht_set_entry(table->entries, table->capacity, key, value, &table->length) != 0)
-    {
-        if (ini_mutex_unlock(&table->mutex) != 0)
-            return NULL;
-        return NULL;
-    }
-
-    if (ini_mutex_unlock(&table->mutex) != 0)
-        return NULL;
-
-    return key;
-}
-
-size_t ini_ht_length(ini_ht_t *table)
-{
-    if (!table)
-        return SIZE_MAX;
-
-    if (ini_mutex_lock(&table->mutex) != 0)
-        return SIZE_MAX;
-
-    size_t len = table->length;
-    if (ini_mutex_unlock(&table->mutex) != 0)
-        return SIZE_MAX;
-
-    return len;
-}
-
-ini_ht_iterator_t ini_ht_iterator(ini_ht_t *table)
-{
-    ini_ht_iterator_t it = {0};
-    if (table)
-    {
-        it._table = table;
-        it._index = 0;
-    }
-    return it;
-}
-
-ini_ht_error_t ini_ht_next(ini_ht_iterator_t *it, char **key, char **value)
-{
-    if (!it || !it->_table || !key || !value)
-        return INI_HT_INVALID_ARGUMENT;
-
-    if (ini_mutex_lock((ini_mutex_t *)&it->_table->mutex) != 0)
-        return INI_HT_MUTEX_ERROR;
-
-    while (it->_index < it->_table->capacity)
-    {
-        size_t i = it->_index++;
-        if (it->_table->entries[i].key)
-        {
-            *key = it->_table->entries[i].key;
-            *value = it->_table->entries[i].value;
-            if (ini_mutex_unlock((ini_mutex_t *)&it->_table->mutex) != 0)
-                return INI_HT_MUTEX_ERROR;
-            return INI_HT_SUCCESS;
-        }
-    }
-
-    if (ini_mutex_unlock((ini_mutex_t *)&it->_table->mutex) != 0)
-        return INI_HT_MUTEX_ERROR;
-
-    return INI_HT_SUCCESS;
+    return NULL;
 }
