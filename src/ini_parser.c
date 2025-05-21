@@ -1,12 +1,51 @@
 #define INI_IMPLEMENTATION
 
 #include <errno.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "ini_parser.h"
 #include "ini_string.h"
+
+// Helper function to convert a pointer to string
+// This is used for storing pointers in the hash table
+static char *ptr_to_str(void *ptr)
+{
+    char buf[32]; // Large enough for any pointer
+    snprintf(buf, sizeof(buf), "%p", ptr);
+    return ini_strdup(buf);
+}
+
+// Helper function to convert a string back to pointer
+// This is used to retrieve pointers from the hash table
+static void *str_to_ptr(const char *str)
+{
+    void *ptr;
+    sscanf(str, "%p", &ptr);
+    return ptr;
+}
+
+// Helper function to store section hash table
+static void store_section_ht(ini_ht_t *sections, const char *section_name, ini_ht_t *section_ht)
+{
+    char *str_ptr = ptr_to_str(section_ht);
+    if (str_ptr)
+    {
+        ini_ht_set(sections, section_name, str_ptr);
+        free(str_ptr);
+    }
+}
+
+// Helper function to get section hash table
+static ini_ht_t *get_section_ht(ini_ht_t *sections, const char *section_name)
+{
+    const char *str_ptr = ini_ht_get(sections, section_name);
+    if (!str_ptr)
+        return NULL;
+    return str_to_ptr(str_ptr);
+}
 
 INI_PUBLIC_API char const *ini_error_to_string(ini_error_t error)
 {
@@ -50,14 +89,14 @@ INI_PUBLIC_API ini_context_t *ini_create_context()
     ctx->sections = ini_ht_create();
     if (!ctx->sections)
     {
-        ini_ht_free(ctx);
+        free(ctx);
         return NULL;
     }
 
-    if (ini_mutex_init(&ctx->mutex) != 0)
+    if (ini_mutex_init(&ctx->mutex) != INI_MUTEX_SUCCESS)
     {
         ini_ht_destroy(ctx->sections);
-        ini_ht_free(ctx);
+        free(ctx);
         return NULL;
     }
 
@@ -67,26 +106,37 @@ INI_PUBLIC_API ini_context_t *ini_create_context()
 INI_PUBLIC_API ini_error_t ini_free(ini_context_t *ctx)
 {
     if (!ctx)
-        return INI_SUCCESS;
+        return INI_INVALID_ARGUMENT;
 
-    // Lock mutex to prevent concurrent access during cleanup
-    if (ini_mutex_lock(&ctx->mutex) != 0)
+    if (ini_mutex_lock(&ctx->mutex) != INI_MUTEX_SUCCESS)
         return INI_PLATFORM_ERROR;
 
-    // Free all nested hash tables (sections)
-    ini_ht_iterator_t it = ini_ht_iterator(ctx->sections);
-    char *section_name;
-    ini_ht_t *section_ht;
-    while (ini_ht_next(&it, &section_name, (char **)&section_ht) == 0)
+    // Iterate over the sections
+    if (ctx->sections)
     {
-        ini_ht_destroy(section_ht);
+        ini_ht_iterator_t it = ini_ht_iterator(ctx->sections);
+        char *section_name;
+        char *section_ptr_str;
+
+        while (ini_ht_next(&it, &section_name, &section_ptr_str) == INI_HT_SUCCESS)
+        {
+            ini_ht_t *section_ht = str_to_ptr(section_ptr_str);
+            if (section_ht)
+            {
+                ini_ht_destroy(section_ht);
+            }
+        }
+        ini_ht_destroy(ctx->sections);
     }
 
-    // Free top-level hash table and context
-    ini_ht_destroy(ctx->sections);
-    ini_mutex_unlock(&ctx->mutex);
-    ini_mutex_destroy(&ctx->mutex);
-    ini_ht_free(ctx);
+    ini_mutex_error_t unlock_err = ini_mutex_unlock(&ctx->mutex);
+    ini_mutex_error_t destroy_err = ini_mutex_destroy(&ctx->mutex);
+
+    if (ctx)
+        free(ctx);
+
+    if (unlock_err != INI_MUTEX_SUCCESS || destroy_err != INI_MUTEX_SUCCESS)
+        return INI_PLATFORM_ERROR;
 
     return INI_SUCCESS;
 }
@@ -273,11 +323,15 @@ INI_PUBLIC_API ini_error_t ini_load(ini_context_t *ctx, char const *filepath)
 
         ini_ht_iterator_t it = ini_ht_iterator(ctx_to_use->sections);
         char *section_name;
-        ini_ht_t *section_ht;
+        char *section_ptr_str;
 
-        while (ini_ht_next(&it, &section_name, (char **)&section_ht) == INI_HT_SUCCESS)
+        while (ini_ht_next(&it, &section_name, &section_ptr_str) == INI_HT_SUCCESS)
         {
-            ini_ht_destroy(section_ht);
+            ini_ht_t *section_ht = str_to_ptr(section_ptr_str);
+            if (section_ht)
+            {
+                ini_ht_destroy(section_ht);
+            }
         }
 
         // Reset the top-level hash table
@@ -398,7 +452,7 @@ INI_PUBLIC_API ini_error_t ini_load(ini_context_t *ctx, char const *filepath)
                 }
 
                 // Add it to the sections hash table
-                ini_ht_set(ctx_to_use->sections, current_section, (char *)current_section_ht);
+                store_section_ht(ctx_to_use->sections, current_section, current_section_ht);
             }
         }
         // Handle key-value pair
@@ -466,7 +520,7 @@ INI_PUBLIC_API ini_error_t ini_load(ini_context_t *ctx, char const *filepath)
                 }
 
                 // Add it to the sections hash table with empty string key
-                ini_ht_set(ctx_to_use->sections, "", (char *)current_section_ht);
+                store_section_ht(ctx_to_use->sections, "", current_section_ht);
             }
 
             // Add/update key-value pair in current section
@@ -511,7 +565,7 @@ INI_PUBLIC_API ini_error_t ini_get_value(ini_context_t const *ctx,
     }
 
     // Get the section hash table
-    ini_ht_t *section_ht = (ini_ht_t *)ini_ht_get(ctx->sections, section);
+    ini_ht_t *section_ht = get_section_ht(ctx->sections, section);
     if (!section_ht)
     {
         ini_mutex_unlock((ini_mutex_t *)&ctx->mutex);
@@ -570,11 +624,12 @@ INI_PUBLIC_API ini_error_t ini_save(ini_context_t const *ctx, char const *filepa
     // Iterate through all sections
     ini_ht_iterator_t sections_it = ini_ht_iterator((ini_ht_t *)ctx->sections);
     char *section_name;
-    ini_ht_t *section_ht;
+    char *section_ptr_str;
     int first_section = 1;
 
-    while (ini_ht_next(&sections_it, &section_name, (char **)&section_ht) == INI_HT_SUCCESS)
+    while (ini_ht_next(&sections_it, &section_name, &section_ptr_str) == INI_HT_SUCCESS)
     {
+        ini_ht_t *section_ht = str_to_ptr(section_ptr_str);
         // Skip empty global section if it has no keys
         if (*section_name == '\0' && ini_ht_length(section_ht) == 0)
         {
@@ -1022,10 +1077,11 @@ INI_PUBLIC_API ini_error_t ini_print(FILE *stream, ini_context_t const *ctx)
     // Iterate through all sections
     ini_ht_iterator_t sections_it = ini_ht_iterator((ini_ht_t *)ctx->sections);
     char *section_name;
-    ini_ht_t *section_ht;
+    char *section_ptr_str;
 
-    while (ini_ht_next(&sections_it, &section_name, (char **)&section_ht) == INI_HT_SUCCESS)
+    while (ini_ht_next(&sections_it, &section_name, &section_ptr_str) == INI_HT_SUCCESS)
     {
+        ini_ht_t *section_ht = str_to_ptr(section_ptr_str);
         // Print section header (except for global section)
         if (*section_name != '\0')
         {

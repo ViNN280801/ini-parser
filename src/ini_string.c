@@ -1,3 +1,4 @@
+#define INI_IMPLEMENTATION
 #include <ctype.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -5,7 +6,7 @@
 
 #include "ini_string.h"
 
-char *ini_strdup(char const *s)
+INI_PUBLIC_API char *ini_strdup(char const *s)
 {
     char *t;
     size_t len;
@@ -19,7 +20,7 @@ char *ini_strdup(char const *s)
     return t;
 }
 
-unsigned strstrip(char *s)
+INI_PUBLIC_API unsigned strstrip(char *s)
 {
     char *last = NULL;
     char *dest = s;

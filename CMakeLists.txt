@@ -11,15 +11,17 @@ project(${PROJECT_NAME}
 if(MSVC)
     # Enable ASan only in Debug builds
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        add_compile_options(/fsanitize=address /Zi /Od /RTC1)
-        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /DEBUG /fsanitize=address")
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /DEBUG /fsanitize=address")
-        set(CMAKE_STATIC_LINKER_FLAGS "${CMAKE_STATIC_LINKER_FLAGS} /fsanitize=address")
-        add_compile_options(/fsanitize=address)
-        add_link_options(/fsanitize=address)
+        add_compile_options(/fsanitize=address /Zi /Od)
+        add_link_options(/DEBUG /fsanitize=address)
+
+        if(NOT BUILD_SHARED_LIBS)
+            add_link_options(/wholearchive:clang_rt.asan_dynamic-x86_64.lib)
+        endif()
+
+        set(ENV{ASAN_VCASAN_DEBUGGING} 1)
     endif()
 elseif(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
+    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fsanitize=address -fno-omit-frame-pointer")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
 endif()
 
@@ -99,11 +101,10 @@ if(INIPARSER_TESTS)
     target_link_libraries(${INI_STRESS_TESTS} PRIVATE ${PROJECT_NAME})
 
     add_test(NAME ${INI_MUTEX_TESTS} COMMAND ${INI_MUTEX_TESTS})
-
     add_test(NAME ${INI_HASH_TABLE_TESTS} COMMAND ${INI_HASH_TABLE_TESTS})
 
-    # add_test(NAME ${INI_CREATE_CONTEXT_TESTS} COMMAND ${INI_CREATE_CONTEXT_TESTS})
-    # add_test(NAME ${INI_FREE_TESTS} COMMAND ${INI_FREE_TESTS})
+    add_test(NAME ${INI_CREATE_CONTEXT_TESTS} COMMAND ${INI_CREATE_CONTEXT_TESTS})
+    add_test(NAME ${INI_FREE_TESTS} COMMAND ${INI_FREE_TESTS})
     # add_test(NAME ${INI_FUNCTIONAL_TESTS} COMMAND ${INI_FUNCTIONAL_TESTS})
     # add_test(NAME ${INI_GET_VALUE_TESTS} COMMAND ${INI_GET_VALUE_TESTS})
     # add_test(NAME ${INI_GOOD_TESTS} COMMAND ${INI_GOOD_TESTS})

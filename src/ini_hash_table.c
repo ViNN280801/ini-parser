@@ -45,7 +45,7 @@ INI_PUBLIC_API ini_ht_t *ini_ht_create(void)
         return NULL;
     }
 
-    if (ini_mutex_init(&table->mutex) != 0)
+    if (ini_mutex_init(&table->mutex) != INI_MUTEX_SUCCESS)
     {
         if (table->entries)
             free(table->entries);
@@ -59,8 +59,8 @@ INI_PUBLIC_API ini_ht_t *ini_ht_create(void)
 
 INI_PUBLIC_API ini_ht_error_t ini_ht_destroy(ini_ht_t *table)
 {
-    if (!table)
-        return INI_HT_MEMORY_ERROR;
+    if (!table || !table->entries)
+        return INI_HT_INVALID_ARGUMENT;
 
     for (size_t i = 0; i < table->capacity; i++)
     {
@@ -73,9 +73,7 @@ INI_PUBLIC_API ini_ht_error_t ini_ht_destroy(ini_ht_t *table)
     if (table->entries)
         free(table->entries);
 
-    if (ini_mutex_destroy(&table->mutex) != 0)
-        return INI_HT_MUTEX_ERROR;
-
+    ini_mutex_destroy(&table->mutex);
     if (table)
         free(table);
 
@@ -87,11 +85,11 @@ INI_PUBLIC_API char const *ini_ht_get(ini_ht_t *table, char const *key)
     if (!table || !key)
         return NULL;
 
-    if (ini_mutex_lock(&table->mutex) != 0)
+    if (ini_mutex_lock(&table->mutex) != INI_MUTEX_SUCCESS)
         return NULL;
 
     ini_ht_key_value_t *entry = __ini_details_ht_get_entry(table->entries, table->capacity, key);
-    if (ini_mutex_unlock(&table->mutex) != 0)
+    if (ini_mutex_unlock(&table->mutex) != INI_MUTEX_SUCCESS)
         return NULL;
 
     return entry ? entry->value : NULL;
@@ -99,33 +97,29 @@ INI_PUBLIC_API char const *ini_ht_get(ini_ht_t *table, char const *key)
 
 INI_PUBLIC_API char const *ini_ht_set(ini_ht_t *table, char const *key, char const *value)
 {
-    if (!table || !key || !value)
+    if (!table || !key)
         return NULL;
 
-    if (ini_mutex_lock(&table->mutex) != 0)
+    if (ini_mutex_lock(&table->mutex) != INI_MUTEX_SUCCESS)
         return NULL;
 
     if (table->length >= table->capacity / 2)
     {
-        if (__ini_details_ht_expand(table) != 0)
+        if (__ini_details_ht_expand(table) != INI_HT_SUCCESS)
         {
-            if (ini_mutex_unlock(&table->mutex) != 0)
-                return NULL;
+            ini_mutex_unlock(&table->mutex);
             return NULL;
         }
     }
 
-    if (__ini_details_ht_set_entry(table->entries, table->capacity, key, value, &table->length) != 0)
+    if (__ini_details_ht_set_entry(table->entries, table->capacity, key, value, &table->length) != INI_HT_SUCCESS)
     {
-        if (ini_mutex_unlock(&table->mutex) != 0)
-            return NULL;
+        ini_mutex_unlock(&table->mutex);
         return NULL;
     }
 
-    if (ini_mutex_unlock(&table->mutex) != 0)
-        return NULL;
-
-    return key;
+    ini_mutex_unlock(&table->mutex);
+    return value;
 }
 
 INI_PUBLIC_API size_t ini_ht_length(ini_ht_t *table)
@@ -133,11 +127,11 @@ INI_PUBLIC_API size_t ini_ht_length(ini_ht_t *table)
     if (!table)
         return SIZE_MAX;
 
-    if (ini_mutex_lock(&table->mutex) != 0)
+    if (ini_mutex_lock(&table->mutex) != INI_MUTEX_SUCCESS)
         return SIZE_MAX;
 
     size_t len = table->length;
-    if (ini_mutex_unlock(&table->mutex) != 0)
+    if (ini_mutex_unlock(&table->mutex) != INI_MUTEX_SUCCESS)
         return SIZE_MAX;
 
     return len;
@@ -159,7 +153,7 @@ INI_PUBLIC_API ini_ht_error_t ini_ht_next(ini_ht_iterator_t *it, char **key, cha
     if (!it || !it->_table || !key || !value)
         return INI_HT_INVALID_ARGUMENT;
 
-    if (ini_mutex_lock((ini_mutex_t *)&it->_table->mutex) != 0)
+    if (ini_mutex_lock((ini_mutex_t *)&it->_table->mutex) != INI_MUTEX_SUCCESS)
         return INI_HT_MUTEX_ERROR;
 
     while (it->_index < it->_table->capacity)
@@ -169,13 +163,13 @@ INI_PUBLIC_API ini_ht_error_t ini_ht_next(ini_ht_iterator_t *it, char **key, cha
         {
             *key = it->_table->entries[i].key;
             *value = it->_table->entries[i].value;
-            if (ini_mutex_unlock((ini_mutex_t *)&it->_table->mutex) != 0)
+            if (ini_mutex_unlock((ini_mutex_t *)&it->_table->mutex) != INI_MUTEX_SUCCESS)
                 return INI_HT_MUTEX_ERROR;
             return INI_HT_SUCCESS;
         }
     }
 
-    if (ini_mutex_unlock((ini_mutex_t *)&it->_table->mutex) != 0)
+    if (ini_mutex_unlock((ini_mutex_t *)&it->_table->mutex) != INI_MUTEX_SUCCESS)
         return INI_HT_MUTEX_ERROR;
 
     return INI_HT_ITERATOR_END;
@@ -195,7 +189,10 @@ ini_ht_error_t __ini_details_ht_set_entry(ini_ht_key_value_t *entries, size_t ca
             if (!new_value)
                 return INI_HT_MEMORY_ERROR;
 
-            free(entries[index].value);
+            // Free the old value before replacing it
+            if (entries[index].value)
+                free(entries[index].value);
+
             entries[index].value = new_value;
             return INI_HT_SUCCESS;
         }
@@ -203,13 +200,13 @@ ini_ht_error_t __ini_details_ht_set_entry(ini_ht_key_value_t *entries, size_t ca
     }
 
     char *new_key = ini_strdup(key);
+    if (!new_key)
+        return INI_HT_MEMORY_ERROR;
+
     char *new_value = ini_strdup(value);
-    if (!new_key || !new_value)
+    if (!new_value)
     {
-        if (new_key)
-            free(new_key);
-        if (new_value)
-            free(new_value);
+        free(new_key);
         return INI_HT_MEMORY_ERROR;
     }
 
@@ -236,35 +233,35 @@ ini_ht_error_t __ini_details_ht_expand(ini_ht_t *table)
         if (table->entries[i].key)
         {
             if (__ini_details_ht_set_entry(new_entries, new_capacity, table->entries[i].key,
-                                           table->entries[i].value, NULL) != 0)
+                                           table->entries[i].value, NULL) != INI_HT_SUCCESS)
             {
                 for (size_t j = 0; j < new_capacity; j++)
                 {
                     if (new_entries[j].key)
                         free(new_entries[j].key);
-
                     if (new_entries[j].value)
                         free(new_entries[j].value);
                 }
-                if (new_entries)
-                    free(new_entries);
-
+                free(new_entries);
                 return INI_HT_MEMORY_ERROR;
             }
-            if (table->entries[i].key)
-                free(table->entries[i].key);
-
-            if (table->entries[i].value)
-                free(table->entries[i].value);
         }
     }
 
+    for (size_t i = 0; i < table->capacity; i++)
+    {
+        if (table->entries[i].key)
+        {
+            free(table->entries[i].key);
+            free(table->entries[i].value);
+        }
+    }
+
+    // Replace old table with new
     if (table->entries)
         free(table->entries);
-
     table->entries = new_entries;
     table->capacity = new_capacity;
-
     return INI_HT_SUCCESS;
 }
 

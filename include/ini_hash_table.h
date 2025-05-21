@@ -9,37 +9,6 @@
 
 #define INI_HT_INITIAL_CAPACITY 16 ///< Initial capacity for the hash table. Must be a power of 2.
 
-#if INI_OS_WINDOWS
-    #include <windows.h>
-
-    /**
-     * @brief Allocates memory on Windows using HeapAlloc.
-     * @param size Number of bytes to allocate.
-     * @return Pointer to allocated memory (not zero-initialized), or NULL on failure.
-     * @note Uses `HEAP_NO_SERIALIZE` (0) for performance; no thread safety guarantees.
-     */
-    #define ini_ht_malloc(size) HeapAlloc(GetProcessHeap(), 0, size)
-
-    /**
-     * @brief Frees memory allocated by `ini_ht_malloc`.
-     * @param ptr Pointer to memory block to free.
-     */
-    #define ini_ht_free(ptr) HeapFree(GetProcessHeap(), 0, ptr)
-#else
-    /**
-     * @brief Wrapper for standard `malloc` on non-Windows platforms.
-     * @param size Number of bytes to allocate.
-     * @return Pointer to uninitialized memory, or NULL on failure.
-     */
-    #define ini_ht_malloc malloc
-
-    /**
-     * @brief Wrapper for standard `free` on non-Windows platforms.
-     * @param ptr Pointer to memory block to free.
-     */
-    #define ini_ht_free free
-#endif
-
 /**
  * @brief Error codes for hash table operations.
  */
