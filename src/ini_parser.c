@@ -1,13 +1,42 @@
 #define INI_IMPLEMENTATION
 
-#include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "ini_filesystem.h"
 #include "ini_parser.h"
 #include "ini_string.h"
+
+ini_error_t to_ini_error(ini_fs_error_t fs_err)
+{
+    switch (fs_err)
+    {
+    case INI_FS_SUCCESS:
+        return INI_SUCCESS;
+    case INI_FS_FILE_NOT_FOUND:
+        return INI_FILE_NOT_FOUND;
+    case INI_FS_FILE_IS_DIR:
+        return INI_FILE_IS_DIR;
+    case INI_FS_FILE_BAD_FORMAT:
+        return INI_FILE_BAD_FORMAT;
+    case INI_FS_FILE_EMPTY:
+        return INI_FILE_EMPTY;
+    case INI_FS_ACCESS_DENIED:
+        return INI_FILE_PERMISSION_DENIED;
+    case INI_FS_INVALID_PARAM:
+        return INI_INVALID_ARGUMENT;
+    case INI_FS_UNKNOWN_ERROR:
+        return INI_UNKNOWN_ERROR;
+    case INI_FS_STAT_ERROR:
+        return INI_FILE_OPEN_FAILED;
+    case INI_FS_WIN_GETFILEATTRIBUTES_ERROR:
+        return INI_FILE_OPEN_FAILED;
+    default:
+        return INI_UNKNOWN_ERROR;
+    }
+}
 
 // Helper function to convert a pointer to string
 // This is used for storing pointers in the hash table
@@ -57,8 +86,6 @@ INI_PUBLIC_API char const *ini_error_to_string(ini_error_t error)
         return "Ini file not found";
     case INI_FILE_EMPTY:
         return "Ini file is empty";
-    case INI_FILE_IS_DIR:
-        return "Ini file is a directory";
     case INI_FILE_OPEN_FAILED:
         return "Ini file open failed";
     case INI_FILE_BAD_FORMAT:
@@ -75,6 +102,10 @@ INI_PUBLIC_API char const *ini_error_to_string(ini_error_t error)
         return "Ini platform error";
     case INI_CLOSE_FAILED:
         return "Ini close failed";
+    case INI_PRINT_ERROR:
+        return "Ini print error";
+    case INI_FILE_PERMISSION_DENIED:
+        return "Ini file permission denied";
     default:
         return "Unknown error";
     }
@@ -148,59 +179,24 @@ INI_PUBLIC_API ini_error_t ini_good(char const *filepath)
         return INI_INVALID_ARGUMENT;
     }
 
-    // Check file existence and type
-#if INI_OS_WINDOWS
-    DWORD attrs = GetFileAttributesA(filepath);
-    if (attrs == INVALID_FILE_ATTRIBUTES)
-    {
-        return INI_FILE_NOT_FOUND;
-    }
-    if (attrs & FILE_ATTRIBUTE_DIRECTORY)
-    {
-        return INI_FILE_IS_DIR;
-    }
-#else
-    struct stat st;
-    if (stat(filepath, &st) != 0)
-    {
-        return INI_FILE_NOT_FOUND;
-    }
-    if (!S_ISREG(st.st_mode))
-    {
-        return S_ISDIR(st.st_mode) ? INI_FILE_IS_DIR : INI_FILE_BAD_FORMAT;
-    }
-    if (st.st_size == 0)
-    {
-        return INI_FILE_EMPTY;
-    }
-#endif
+    ini_fs_error_t fs_err = ini_check_file_status(filepath);
+    if (fs_err != INI_FS_SUCCESS)
+        return to_ini_error(fs_err);
 
-    // Open file
-    FILE *file = NULL;
-#if INI_OS_WINDOWS
-    if (fopen_s(&file, filepath, "r") != 0 || !file)
-    {
-        return INI_FILE_OPEN_FAILED;
-    }
-#else
-    file = fopen(filepath, "r");
+    size_t file_size = 0;
+    if (ini_get_file_size(filepath, &file_size) == INI_FS_SUCCESS && file_size == 0)
+        return INI_FILE_EMPTY;
+
+    FILE *file = ini_fopen(filepath, "r");
     if (!file)
-    {
         return INI_FILE_OPEN_FAILED;
-    }
-#endif
 
-    // Check for empty file (Windows-specific)
-#if INI_OS_WINDOWS
-    fseek(file, 0, SEEK_END);
-    long size = ftell(file);
-    rewind(file);
-    if (size == 0)
-    {
-        fclose(file);
+    size_t fileSize;
+    fs_err = ini_get_file_size(filepath, &fileSize);
+    if (fs_err != INI_FS_SUCCESS)
+        return to_ini_error(fs_err);
+    if (fileSize == 0)
         return INI_FILE_EMPTY;
-    }
-#endif
 
     // Validate INI syntax
     char line[INI_LINE_MAX];
@@ -228,7 +224,7 @@ INI_PUBLIC_API ini_error_t ini_good(char const *filepath)
         // Check line length
         if (strlen(trimmed) >= INI_LINE_MAX - 1 && trimmed[INI_LINE_MAX - 2] != '\n')
         {
-            error = INI_FILE_BAD_FORMAT_LINE;
+            error = INI_FILE_BAD_FORMAT;
             break;
         }
 
@@ -238,7 +234,7 @@ INI_PUBLIC_API ini_error_t ini_good(char const *filepath)
             char *end = strchr(trimmed, ']');
             if (!end)
             {
-                error = INI_FILE_BAD_FORMAT_LINE;
+                error = INI_FILE_BAD_FORMAT;
                 break;
             }
             in_section = 0;
@@ -250,7 +246,7 @@ INI_PUBLIC_API ini_error_t ini_good(char const *filepath)
             char *eq = strchr(trimmed, '=');
             if (!eq || eq == trimmed)
             {
-                error = INI_FILE_BAD_FORMAT_LINE;
+                error = INI_FILE_BAD_FORMAT;
                 break;
             }
 
@@ -268,14 +264,14 @@ INI_PUBLIC_API ini_error_t ini_good(char const *filepath)
                 if (!end_quote || (end_quote[1] != '\0' && end_quote[1] != '\n' &&
                                    end_quote[1] != ';' && end_quote[1] != '#'))
                 {
-                    error = INI_FILE_BAD_FORMAT_LINE;
+                    error = INI_FILE_BAD_FORMAT;
                     break;
                 }
             }
         }
         else
         {
-            error = INI_FILE_BAD_FORMAT_LINE;
+            error = INI_FILE_BAD_FORMAT;
             break;
         }
     }
@@ -347,19 +343,7 @@ INI_PUBLIC_API ini_error_t ini_load(ini_context_t *ctx, char const *filepath)
         ini_mutex_unlock(&ctx_to_use->mutex);
     }
 
-    // Open the file
-    FILE *file;
-#if INI_OS_WINDOWS
-    if (fopen_s(&file, filepath, "r") != 0 || !file)
-    {
-        if (need_to_free_on_error)
-        {
-            ini_free(ctx_to_use);
-        }
-        return INI_FILE_OPEN_FAILED;
-    }
-#else
-    file = fopen(filepath, "r");
+    FILE *file = ini_fopen(filepath, "r");
     if (!file)
     {
         if (need_to_free_on_error)
@@ -368,7 +352,6 @@ INI_PUBLIC_API ini_error_t ini_load(ini_context_t *ctx, char const *filepath)
         }
         return INI_FILE_OPEN_FAILED;
     }
-#endif
 
     // Check for UTF-8 BOM
     unsigned char bom[3];
@@ -426,7 +409,7 @@ INI_PUBLIC_API ini_error_t ini_load(ini_context_t *ctx, char const *filepath)
                 {
                     ini_free(ctx_to_use);
                 }
-                return INI_FILE_BAD_FORMAT_LINE;
+                return INI_FILE_BAD_FORMAT;
             }
 
             *end = '\0';
@@ -599,20 +582,15 @@ INI_PUBLIC_API ini_error_t ini_save(ini_context_t const *ctx, char const *filepa
         return INI_INVALID_ARGUMENT;
     }
 
+    // Check if file has write permission
+    ini_file_permission_t perms = ini_get_file_permission(filepath);
+    if (perms.write == 0)
+        return INI_FILE_PERMISSION_DENIED;
+
     // Open file for writing
-    FILE *file;
-#if INI_OS_WINDOWS
-    if (fopen_s(&file, filepath, "w") != 0 || !file)
-    {
-        return INI_FILE_OPEN_FAILED;
-    }
-#else
-    file = fopen(filepath, "w");
+    FILE *file = ini_fopen(filepath, "w");
     if (!file)
-    {
         return INI_FILE_OPEN_FAILED;
-    }
-#endif
 
     // Lock context for thread safety
     if (ini_mutex_lock((ini_mutex_t *)&ctx->mutex) != 0)
@@ -747,7 +725,8 @@ INI_PUBLIC_API ini_error_t ini_save_section_value(ini_context_t const *ctx,
         return INI_FILE_OPEN_FAILED;
     }
 
-    if (fopen_s(&temp_file, temp_path, "w") != 0 || !temp_file)
+    temp_file = ini_fopen(temp_path, "w");
+    if (!temp_file)
     {
         ini_mutex_unlock((ini_mutex_t *)&ctx->mutex);
         return INI_FILE_OPEN_FAILED;
@@ -765,22 +744,12 @@ INI_PUBLIC_API ini_error_t ini_save_section_value(ini_context_t const *ctx,
     // If file exists, read it and update the specific section
     if (file_exists)
     {
-#if INI_OS_WINDOWS
-        if (fopen_s(&existing_file, filepath, "r") != 0 || !existing_file)
+        if (ini_fopen(filepath, "r") != 0 || !existing_file)
         {
             fclose(temp_file);
             ini_mutex_unlock((ini_mutex_t *)&ctx->mutex);
             return INI_FILE_OPEN_FAILED;
         }
-#else
-        existing_file = fopen(filepath, "r");
-        if (!existing_file)
-        {
-            fclose(temp_file);
-            ini_mutex_unlock((ini_mutex_t *)&ctx->mutex);
-            return INI_FILE_OPEN_FAILED;
-        }
-#endif
 
         char line[INI_LINE_MAX];
         char current_section[INI_LINE_MAX] = "";
@@ -1039,7 +1008,7 @@ INI_PUBLIC_API ini_error_t ini_save_section_value(ini_context_t const *ctx,
     // On Unix, rewind the temp file and copy to real file
     rewind(temp_file);
 
-    FILE *dest_file = fopen(filepath, "w");
+    FILE *dest_file = ini_fopen(filepath, "w");
     if (!dest_file)
     {
         fclose(temp_file);

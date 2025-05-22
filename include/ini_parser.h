@@ -9,24 +9,8 @@
 #define INI_PARSER_VERSION "1.0.0"
 #endif
 
-#define INI_ERRSTACK_SIZE 1024
 #define INI_LINE_MAX 8192
 #define INI_BUFFER_SIZE 2048
-
-#if INI_OS_WINDOWS
-#include <io.h> // For _access()
-#include <windows.h>
-
-#define F_OK 0
-#define R_OK 4 // Read permission for _access()
-#define PATH_SEPARATOR '\\'
-
-#else /* not Windows */
-#include <sys/stat.h>
-#include <unistd.h> // For access()
-
-#define PATH_SEPARATOR '/'
-#endif /* OS check */
 
 INI_EXTERN_C_BEGIN
 
@@ -36,18 +20,18 @@ typedef enum
     INI_SUCCESS = 0,            ///< Operation succeeded.
     INI_FILE_NOT_FOUND,         ///< Specified file does not exist.
     INI_FILE_EMPTY,             ///< File is empty.
-    INI_FILE_IS_DIR,            ///< Path points to a directory, not a file.
     INI_FILE_OPEN_FAILED,       ///< Failed to open the file.
     INI_FILE_BAD_FORMAT,        ///< File has invalid INI syntax.
+    INI_MEMORY_ERROR,           ///< Failed to allocate/reallocate/free memory.
     INI_SECTION_NOT_FOUND,      ///< Requested section does not exist.
     INI_KEY_NOT_FOUND,          ///< Requested key does not exist.
     INI_INVALID_ARGUMENT,       ///< Invalid argument passed to a function.
     INI_PLATFORM_ERROR,         ///< Platform-specific error (e.g., mutex failure).
     INI_CLOSE_FAILED,           ///< Failed to close the file.
-    INI_MEMORY_ERROR,           ///< Failed to allocate/reallocate/free memory.
     INI_PRINT_ERROR,            ///< Error during printing/formatting.
-    INI_FILE_BAD_FORMAT_LINE,   ///< Syntax error at a specific line.
     INI_FILE_PERMISSION_DENIED, ///< Permission denied (e.g. read-only file)
+    INI_FILE_IS_DIR,            ///< Path points to a directory
+    INI_UNKNOWN_ERROR           ///< Unknown error
 } ini_error_t;
 
 /**
