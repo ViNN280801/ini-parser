@@ -54,9 +54,9 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 
 # ================ Testing ======================
 if(INIPARSER_TESTS)
-    set(INI_MUTEX_TESTS ini_mutex_tests)
-
+    set(INI_FILESYSTEM_TESTS ini_filesystem_tests)
     set(INI_HASH_TABLE_TESTS ini_hash_table_tests)
+    set(INI_MUTEX_TESTS ini_mutex_tests)
 
     set(INI_CREATE_CONTEXT_TESTS ini_create_context_tests)
     set(INI_FREE_TESTS ini_free_tests)
@@ -72,11 +72,17 @@ if(INIPARSER_TESTS)
 
     enable_testing()
 
-    add_executable(${INI_MUTEX_TESTS} tests/ini_mutex_tests.c)
-    target_link_libraries(${INI_MUTEX_TESTS} PRIVATE ${PROJECT_NAME})
+    # ====== File System Tests =================================================== #
+    add_executable(${INI_FILESYSTEM_TESTS} tests/ini_filesystem_tests.c)
+    target_link_libraries(${INI_FILESYSTEM_TESTS} PRIVATE ${PROJECT_NAME})
 
+    # ====== Hash Table Tests ==================================================== #
     add_executable(${INI_HASH_TABLE_TESTS} tests/ini_hash_table_tests.c)
     target_link_libraries(${INI_HASH_TABLE_TESTS} PRIVATE ${PROJECT_NAME})
+
+    # ====== Mutex Tests ========================================================= #
+    add_executable(${INI_MUTEX_TESTS} tests/ini_mutex_tests.c)
+    target_link_libraries(${INI_MUTEX_TESTS} PRIVATE ${PROJECT_NAME})
 
     add_executable(${INI_CREATE_CONTEXT_TESTS} tests/ini_create_context_tests.c)
     target_link_libraries(${INI_CREATE_CONTEXT_TESTS} PRIVATE ${PROJECT_NAME})
@@ -101,8 +107,9 @@ if(INIPARSER_TESTS)
     add_executable(${INI_STRESS_TESTS} tests/ini_stress_tests.c)
     target_link_libraries(${INI_STRESS_TESTS} PRIVATE ${PROJECT_NAME})
 
-    add_test(NAME ${INI_MUTEX_TESTS} COMMAND ${INI_MUTEX_TESTS})
+    add_test(NAME ${INI_FILESYSTEM_TESTS} COMMAND ${INI_FILESYSTEM_TESTS})
     add_test(NAME ${INI_HASH_TABLE_TESTS} COMMAND ${INI_HASH_TABLE_TESTS})
+    add_test(NAME ${INI_MUTEX_TESTS} COMMAND ${INI_MUTEX_TESTS})
 
     add_test(NAME ${INI_CREATE_CONTEXT_TESTS} COMMAND ${INI_CREATE_CONTEXT_TESTS})
     add_test(NAME ${INI_FREE_TESTS} COMMAND ${INI_FREE_TESTS})

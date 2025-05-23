@@ -20,9 +20,8 @@
 
 void test_free_null_context()
 {
-    fprintf(stderr, "Starting test_free_null_context\n");
-    ini_error_t err = ini_free(NULL);
-    assert(err == INI_INVALID_ARGUMENT);
+    ini_status_t err = ini_free(NULL);
+    assert(err == INI_STATUS_INVALID_ARGUMENT);
     print_success("test_free_null_context passed\n");
 }
 
@@ -30,8 +29,8 @@ void test_free_empty_context()
 {
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
-    ini_error_t err = ini_free(ctx);
-    assert(err == INI_SUCCESS);
+    ini_status_t err = ini_free(ctx);
+    assert(err == INI_STATUS_SUCCESS);
     print_success("test_free_empty_context passed\n");
 }
 
@@ -46,7 +45,6 @@ void test_free_loaded_context()
     }
     else
     {
-        fprintf(stderr, "Failed to create test file\n");
         return;
     }
 
@@ -54,16 +52,14 @@ void test_free_loaded_context()
     ini_context_t *ctx = ini_create_context();
     if (!ctx)
     {
-        fprintf(stderr, "Failed to create context\n");
         remove(test_file);
         return;
     }
 
     // Load the file
-    ini_error_t err = ini_load(ctx, test_file);
-    if (err != INI_SUCCESS)
+    ini_status_t err = ini_load(ctx, test_file);
+    if (err != INI_STATUS_SUCCESS)
     {
-        fprintf(stderr, "Failed to load INI file: %s\n", ini_error_to_string(err));
         ini_free(ctx);
         remove(test_file);
         return;
@@ -71,14 +67,8 @@ void test_free_loaded_context()
 
     // Free the context
     err = ini_free(ctx);
-    if (err != INI_SUCCESS)
-    {
-        fprintf(stderr, "Failed to free context: %s\n", ini_error_to_string(err));
-    }
-    else
-    {
-        print_success("test_free_loaded_context passed\n");
-    }
+    assert(err == INI_STATUS_SUCCESS);
+    print_success("test_free_loaded_context passed\n");
 
     remove(test_file);
 }
@@ -89,8 +79,8 @@ void test_free_double_free()
     assert(ctx != NULL);
 
     // First free should succeed
-    ini_error_t err = ini_free(ctx);
-    assert(err == INI_SUCCESS);
+    ini_status_t err = ini_free(ctx);
+    assert(err == INI_STATUS_SUCCESS);
 
     // In an ideal implementation, a second free of the same pointer
     // should be detected and handled safely, returning SUCCESS
@@ -106,12 +96,12 @@ void test_free_double_free()
 
     // Free it once
     err = ini_free(ctx);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
 
     // Don't use ctx after it's freed, this is just for error code checking
     // Use NULL instead of the freed pointer to avoid undefined behavior
     err = ini_free(NULL);
-    assert(err == INI_INVALID_ARGUMENT);
+    assert(err == INI_STATUS_INVALID_ARGUMENT);
 
     print_success("test_free_double_free passed\n");
 }
@@ -120,8 +110,8 @@ void test_free_platform_specific()
 {
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
-    ini_error_t err = ini_free(ctx);
-    assert(err == INI_SUCCESS);
+    ini_status_t err = ini_free(ctx);
+    assert(err == INI_STATUS_SUCCESS);
     print_success("test_free_platform_specific passed\n");
 }
 
@@ -130,8 +120,8 @@ void test_free_memory_leak()
     // Ensure no memory leaks by creating and freeing contexts
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
-    ini_error_t err = ini_free(ctx);
-    assert(err == INI_SUCCESS);
+    ini_status_t err = ini_free(ctx);
+    assert(err == INI_STATUS_SUCCESS);
     print_success("test_free_memory_leak passed\n");
 }
 
@@ -144,12 +134,12 @@ void test_free_with_sections()
     assert(ctx != NULL);
 
     // Load the file with sections
-    ini_error_t err = ini_load(ctx, TEST_FILE);
-    assert(err == INI_SUCCESS);
+    ini_status_t err = ini_load(ctx, TEST_FILE);
+    assert(err == INI_STATUS_SUCCESS);
 
     // Free the context
     err = ini_free(ctx);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
 
     remove_test_file(TEST_FILE);
     print_success("test_free_with_sections passed\n");
@@ -164,12 +154,12 @@ void test_free_with_subsections()
     assert(ctx != NULL);
 
     // Load with subsections
-    ini_error_t err = ini_load(ctx, TEST_FILE);
-    assert(err == INI_SUCCESS);
+    ini_status_t err = ini_load(ctx, TEST_FILE);
+    assert(err == INI_STATUS_SUCCESS);
 
     // Free context
     err = ini_free(ctx);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
 
     remove_test_file(TEST_FILE);
     print_success("test_free_with_subsections passed\n");

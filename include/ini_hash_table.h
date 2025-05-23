@@ -4,31 +4,17 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "ini_constants.h"
 #include "ini_export.h"
 #include "ini_mutex.h"
-
-#define INI_HT_INITIAL_CAPACITY 16 ///< Initial capacity for the hash table. Must be a power of 2.
-
-/**
- * @brief Error codes for hash table operations.
- */
-typedef enum
-{
-    INI_HT_SUCCESS = 0,          ///< Operation succeeded.
-    INI_HT_MEMORY_ERROR,         ///< Memory allocation failed.
-    INI_HT_MUTEX_ERROR,          ///< Mutex operation failed.
-    INI_HT_INVALID_ARGUMENT,     ///< Invalid argument (NULL pointer, etc.).
-    INI_HT_LACK_OF_MEMORY,       ///< Lack of memory (for example, when expanding the table).
-    INI_HT_ITERATOR_END,         ///< Iterator has reached the end of the table.
-} ini_ht_error_t;
 
 /**
  * @brief Key-value pair for hash table entries.
  */
 typedef struct
 {
-    char *key;                   ///< Null-terminated string key.
-    char *value;                 ///< Null-terminated string value.
+    char *key;   ///< Null-terminated string key.
+    char *value; ///< Null-terminated string value.
 } ini_ht_key_value_t;
 
 /**
@@ -48,8 +34,8 @@ typedef struct
  */
 typedef struct
 {
-    ini_ht_t const *_table;      ///< Pointer to the hash table.
-    size_t _index;               ///< Current iteration index.
+    ini_ht_t const *_table; ///< Pointer to the hash table.
+    size_t _index;          ///< Current iteration index.
 } ini_ht_iterator_t;
 
 /**
@@ -71,7 +57,7 @@ INI_PUBLIC_API ini_ht_t *ini_ht_create(void);
  * @brief Destroys a hash table and frees all resources.
  * @param table Table to destroy (safe to call with NULL).
  */
-INI_PUBLIC_API ini_ht_error_t ini_ht_destroy(ini_ht_t *table);
+INI_PUBLIC_API ini_status_t ini_ht_destroy(ini_ht_t *table);
 
 /**
  * @brief Retrieves a value by key.
@@ -113,6 +99,6 @@ INI_PUBLIC_API ini_ht_iterator_t ini_ht_iterator(ini_ht_t *table);
  * @param[out] value Set to the current entry's value (do not free).
  * @return 0 on success, -1 if no more entries.
  */
-INI_PUBLIC_API ini_ht_error_t ini_ht_next(ini_ht_iterator_t *it, char **key, char **value);
+INI_PUBLIC_API ini_status_t ini_ht_next(ini_ht_iterator_t *it, char **key, char **value);
 
 #endif // !INI_HASH_TABLE_H

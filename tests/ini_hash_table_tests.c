@@ -137,16 +137,16 @@ void test_ht_destroy_success()
     ini_ht_set(table, "key2", "value2");
 
     // Destroy table
-    ini_ht_error_t err = ini_ht_destroy(table);
-    assert(err == INI_HT_SUCCESS);
+    ini_status_t err = ini_ht_destroy(table);
+    assert(err == INI_STATUS_SUCCESS);
     print_success("test_ht_destroy_success passed\n");
 }
 
 // Dirty test: NULL table
 void test_ht_destroy_null()
 {
-    ini_ht_error_t err = ini_ht_destroy(NULL);
-    assert(err == INI_HT_INVALID_ARGUMENT);
+    ini_status_t err = ini_ht_destroy(NULL);
+    assert(err == INI_STATUS_INVALID_ARGUMENT);
     print_success("test_ht_destroy_null passed\n");
 }
 
@@ -159,8 +159,8 @@ void test_ht_destroy_partial_data()
     // Add one entry, leave others NULL
     ini_ht_set(table, "key1", "value1");
 
-    ini_ht_error_t err = ini_ht_destroy(table);
-    assert(err == INI_HT_SUCCESS);
+    ini_status_t err = ini_ht_destroy(table);
+    assert(err == INI_STATUS_SUCCESS);
     print_success("test_ht_destroy_partial_data passed\n");
 }
 
@@ -488,7 +488,7 @@ void test_ht_next_success()
     assert(ini_ht_set(table, "key1", "value1") != NULL);
     ini_ht_iterator_t it = ini_ht_iterator(table);
     char *key, *value;
-    assert(ini_ht_next(&it, &key, &value) == INI_HT_SUCCESS);
+    assert(ini_ht_next(&it, &key, &value) == INI_STATUS_SUCCESS);
     assert(strcmp(key, "key1") == 0);
     assert(strcmp(value, "value1") == 0);
     ini_ht_destroy(table);
@@ -501,7 +501,7 @@ void test_ht_next_empty_table()
     assert(table != NULL);
     ini_ht_iterator_t it = ini_ht_iterator(table);
     char *key, *value;
-    assert(ini_ht_next(&it, &key, &value) == INI_HT_ITERATOR_END);
+    assert(ini_ht_next(&it, &key, &value) == INI_STATUS_ITERATOR_END);
     ini_ht_destroy(table);
     print_success("test_ht_next_empty_table passed\n");
 }
@@ -514,9 +514,9 @@ void test_ht_next_multiple_entries()
     assert(ini_ht_set(table, "key2", "value2") != NULL);
     ini_ht_iterator_t it = ini_ht_iterator(table);
     char *key, *value;
-    assert(ini_ht_next(&it, &key, &value) == INI_HT_SUCCESS);
+    assert(ini_ht_next(&it, &key, &value) == INI_STATUS_SUCCESS);
     assert(strcmp(key, "key1") == 0 || strcmp(key, "key2") == 0);
-    assert(ini_ht_next(&it, &key, &value) == INI_HT_SUCCESS);
+    assert(ini_ht_next(&it, &key, &value) == INI_STATUS_SUCCESS);
     assert(strcmp(key, "key1") == 0 || strcmp(key, "key2") == 0);
     ini_ht_destroy(table);
     print_success("test_ht_next_multiple_entries passed\n");
@@ -527,7 +527,7 @@ void test_ht_next_null_args()
     ini_ht_t *table = ini_ht_create();
     assert(table != NULL);
     ini_ht_iterator_t it = ini_ht_iterator(table);
-    assert(ini_ht_next(&it, NULL, NULL) == INI_HT_INVALID_ARGUMENT);
+    assert(ini_ht_next(&it, NULL, NULL) == INI_STATUS_INVALID_ARGUMENT);
     ini_ht_destroy(table);
     print_success("test_ht_next_null_args passed\n");
 }
@@ -535,7 +535,7 @@ void test_ht_next_null_args()
 void test_ht_next_null_iterator()
 {
     char *key, *value;
-    assert(ini_ht_next(NULL, &key, &value) == INI_HT_INVALID_ARGUMENT);
+    assert(ini_ht_next(NULL, &key, &value) == INI_STATUS_INVALID_ARGUMENT);
     print_success("test_ht_next_null_iterator passed\n");
 }
 
@@ -546,7 +546,7 @@ void test_ht_next_mutex_fail()
     assert(ini_ht_set(table, "key1", "value1") != NULL);
     ini_ht_iterator_t it = ini_ht_iterator(table);
     char *key, *value;
-    assert(ini_ht_next(&it, &key, &value) != INI_HT_MUTEX_ERROR);
+    assert(ini_ht_next(&it, &key, &value) != INI_STATUS_MUTEX_ERROR);
     ini_ht_destroy(table);
     print_success("test_ht_next_mutex_fail passed\n");
 }
@@ -558,7 +558,7 @@ void test_ht_next_unlock_fail()
     assert(ini_ht_set(table, "key1", "value1") != NULL);
     ini_ht_iterator_t it = ini_ht_iterator(table);
     char *key, *value;
-    assert(ini_ht_next(&it, &key, &value) != INI_HT_MUTEX_ERROR);
+    assert(ini_ht_next(&it, &key, &value) != INI_STATUS_MUTEX_ERROR);
     ini_ht_destroy(table);
     print_success("test_ht_next_unlock_fail passed\n");
 }
@@ -577,7 +577,7 @@ void test_ht_next_partial_fill()
     char *key, *value;
     for (int i = 0; i < 5; i++)
     {
-        assert(ini_ht_next(&it, &key, &value) == INI_HT_SUCCESS);
+        assert(ini_ht_next(&it, &key, &value) == INI_STATUS_SUCCESS);
     }
     ini_ht_destroy(table);
     print_success("test_ht_next_partial_fill passed\n");
@@ -590,8 +590,8 @@ void test_ht_next_no_more_entries()
     assert(ini_ht_set(table, "key1", "value1") != NULL);
     ini_ht_iterator_t it = ini_ht_iterator(table);
     char *key, *value;
-    assert(ini_ht_next(&it, &key, &value) == INI_HT_SUCCESS);
-    assert(ini_ht_next(&it, &key, &value) == INI_HT_ITERATOR_END);
+    assert(ini_ht_next(&it, &key, &value) == INI_STATUS_SUCCESS);
+    assert(ini_ht_next(&it, &key, &value) == INI_STATUS_ITERATOR_END);
     ini_ht_destroy(table);
     print_success("test_ht_next_no_more_entries passed\n");
 }
@@ -619,7 +619,7 @@ void test_ht_destroy_null_entries()
     assert(table != NULL);
     table->entries[0].key = NULL;
     table->entries[0].value = ini_strdup("value");
-    assert(ini_ht_destroy(table) == INI_HT_SUCCESS);
+    assert(ini_ht_destroy(table) == INI_STATUS_SUCCESS);
     print_success("test_ht_destroy_null_entries passed\n");
 }
 
@@ -684,7 +684,7 @@ void test_ht_comprehensive_workflow()
     ini_ht_iterator_t it = ini_ht_iterator(table);
     char *key, *value;
     size_t count = 0;
-    while (ini_ht_next(&it, &key, &value) == INI_HT_SUCCESS &&
+    while (ini_ht_next(&it, &key, &value) == INI_STATUS_SUCCESS &&
            key != NULL &&
            value != NULL)
     {
@@ -696,7 +696,7 @@ void test_ht_comprehensive_workflow()
     assert(ini_ht_length(table) == 24);
 
     // 8. Cleanup
-    assert(ini_ht_destroy(table) == INI_HT_SUCCESS);
+    assert(ini_ht_destroy(table) == INI_STATUS_SUCCESS);
     print_success("test_ht_comprehensive_workflow passed\n");
 }
 

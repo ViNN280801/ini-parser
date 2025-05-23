@@ -12,7 +12,7 @@ INI_PUBLIC_API ini_file_permission_t ini_get_file_permission(char const *filepat
 {
     ini_file_permission_t permission = {0}; // Default perms: 000
 
-    if (!filepath)
+    if (!filepath || strlen(filepath) == 0)
         return permission;
 
 #if INI_OS_WINDOWS
@@ -105,6 +105,33 @@ INI_PUBLIC_API ini_file_permission_t ini_get_file_permission(char const *filepat
     return permission;
 }
 
+INI_PUBLIC_API ini_status_t ini_file_exists(char const *filepath)
+{
+    if (!filepath || strlen(filepath) == 0)
+        return INI_STATUS_INVALID_ARGUMENT;
+
+#if INI_OS_WINDOWS
+    DWORD attrs = GetFileAttributesA(filepath);
+    if (attrs == INVALID_FILE_ATTRIBUTES)
+    {
+        DWORD err = GetLastError();
+        if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND)
+            return INI_STATUS_FILE_NOT_FOUND;
+        return INI_STATUS_UNKNOWN_ERROR;
+    }
+    return INI_STATUS_SUCCESS;
+#else
+    struct stat sb;
+    if (stat(filepath, &sb) == -1)
+    {
+        if (errno == ENOENT)
+            return INI_STATUS_FILE_NOT_FOUND;
+        return INI_STATUS_UNKNOWN_ERROR;
+    }
+    return INI_STATUS_SUCCESS;
+#endif
+}
+
 INI_PUBLIC_API FILE *ini_fopen(char const *filepath, char const *mode)
 {
     if (!filepath || !mode)
@@ -145,10 +172,36 @@ INI_PUBLIC_API FILE *ini_fopen(char const *filepath, char const *mode)
     return file;
 }
 
-INI_PUBLIC_API ini_fs_error_t ini_check_file_status(char const *filepath)
+INI_PUBLIC_API ini_status_t ini_is_file_directory(char const *filepath)
 {
-    if (!filepath || !*filepath)
-        return INI_FS_INVALID_PARAM;
+    if (!filepath || strlen(filepath) == 0)
+        return INI_STATUS_INVALID_ARGUMENT;
+
+#if INI_OS_WINDOWS
+    DWORD fileAttributes = GetFileAttributes(filepath);
+    if (fileAttributes == INVALID_FILE_ATTRIBUTES)
+        return INI_STATUS_FILE_NOT_FOUND;
+
+    if (fileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+        return INI_STATUS_FILE_IS_DIR;
+    else
+        return INI_STATUS_FILE_NOT_FOUND;
+#else
+    struct stat sb;
+    if (stat(filepath, &sb) == 0 && S_ISDIR(sb.st_mode))
+        return INI_STATUS_FILE_IS_DIR;
+    else
+        return INI_STATUS_FILE_NOT_FOUND;
+#endif
+}
+
+INI_PUBLIC_API ini_status_t ini_check_file_status(char const *filepath)
+{
+    if (!filepath || strlen(filepath) == 0)
+        return INI_STATUS_INVALID_ARGUMENT;
+
+    if (ini_is_file_directory(filepath) == INI_STATUS_FILE_IS_DIR)
+        return INI_STATUS_FILE_IS_DIR;
 
 #if INI_OS_WINDOWS
     DWORD attrs = GetFileAttributesA(filepath);
@@ -158,15 +211,13 @@ INI_PUBLIC_API ini_fs_error_t ini_check_file_status(char const *filepath)
         {
         case ERROR_FILE_NOT_FOUND:
         case ERROR_PATH_NOT_FOUND:
-            return INI_FS_FILE_NOT_FOUND;
+            return INI_STATUS_FILE_NOT_FOUND;
         case ERROR_ACCESS_DENIED:
-            return INI_FS_ACCESS_DENIED;
+            return INI_STATUS_FILE_PERMISSION_DENIED;
         default:
-            return INI_FS_UNKNOWN_ERROR;
+            return INI_STATUS_UNKNOWN_ERROR;
         }
     }
-    if (attrs & FILE_ATTRIBUTE_DIRECTORY)
-        return INI_FS_FILE_IS_DIR;
 #else
     struct stat st;
     if (stat(filepath, &st) != 0)
@@ -174,33 +225,34 @@ INI_PUBLIC_API ini_fs_error_t ini_check_file_status(char const *filepath)
         switch (errno)
         {
         case ENOENT:
-            return INI_FS_FILE_NOT_FOUND;
+            return INI_STATUS_FILE_NOT_FOUND;
         case EACCES:
-            return INI_FS_ACCESS_DENIED;
+            return INI_STATUS_FILE_PERMISSION_DENIED;
         default:
-            return INI_FS_UNKNOWN_ERROR;
+            return INI_STATUS_UNKNOWN_ERROR;
         }
     }
-    if (S_ISDIR(st.st_mode))
-        return INI_FS_FILE_IS_DIR;
     if (!S_ISREG(st.st_mode))
-        return INI_FS_FILE_BAD_FORMAT;
+        return INI_STATUS_FILE_BAD_FORMAT;
     if (st.st_size == 0)
-        return INI_FS_FILE_EMPTY;
+        return INI_STATUS_FILE_EMPTY;
 #endif
 
-    return INI_FS_SUCCESS;
+    return INI_STATUS_SUCCESS;
 }
 
-INI_PUBLIC_API ini_fs_error_t ini_get_file_size(char const *filepath, size_t *size)
+INI_PUBLIC_API ini_status_t ini_get_file_size(char const *filepath, size_t *size)
 {
     if (!filepath || !size)
-        return INI_FS_INVALID_PARAM;
+        return INI_STATUS_INVALID_ARGUMENT;
+
+    if (ini_is_file_directory(filepath) == INI_STATUS_FILE_IS_DIR)
+        return INI_STATUS_FILE_IS_DIR;
 
 #if INI_OS_WINDOWS
     WIN32_FILE_ATTRIBUTE_DATA fileInfo;
     if (!GetFileAttributesExA(filepath, GetFileExInfoStandard, &fileInfo))
-        return INI_FS_WIN_GETFILEATTRIBUTES_ERROR;
+        return INI_STATUS_WIN_GETFILEATTRIBUTES_ERROR;
 
     LARGE_INTEGER fileSize;
     fileSize.LowPart = fileInfo.nFileSizeLow;
@@ -209,9 +261,9 @@ INI_PUBLIC_API ini_fs_error_t ini_get_file_size(char const *filepath, size_t *si
 #else
     struct stat sb;
     if (stat(filepath, &sb) == -1)
-        return INI_FS_STAT_ERROR;
+        return INI_STATUS_STAT_ERROR;
     *size = (size_t)sb.st_size;
 #endif
 
-    return INI_FS_SUCCESS;
+    return INI_STATUS_SUCCESS;
 }

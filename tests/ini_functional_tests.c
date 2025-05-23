@@ -29,29 +29,29 @@ void test_basic_load_save()
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
 
-    ini_error_t err = ini_load(ctx, TEST_FILE);
-    assert(err == INI_SUCCESS);
+    ini_status_t err = ini_load(ctx, TEST_FILE);
+    assert(err == INI_STATUS_SUCCESS);
 
     err = ini_save(ctx, OUTPUT_FILE);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
 
     // Verify the saved file
     ini_context_t *ctx2 = ini_create_context();
     assert(ctx2 != NULL);
 
     err = ini_load(ctx2, OUTPUT_FILE);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
 
     char *value = NULL;
     err = ini_get_value(ctx2, "section", "key", &value);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     assert(strcmp(value, "value") == 0);
     free(value);
 
     err = ini_free(ctx);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     err = ini_free(ctx2);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     remove_test_file(TEST_FILE);
     remove_test_file(OUTPUT_FILE);
 
@@ -64,42 +64,15 @@ void test_load_nonexistent_file()
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
 
-    ini_error_t err = ini_load(ctx, "nonexistent.ini");
-    assert(err == INI_FILE_NOT_FOUND);
+    ini_status_t err = ini_load(ctx, "nonexistent.ini");
+    assert(err == INI_STATUS_FILE_NOT_FOUND);
 
     err = ini_free(ctx);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     print_success("test_load_nonexistent_file passed\n");
 }
 
-// --- Dirty Test 2: Save to Read-Only Directory (Unix) ---
-void test_save_readonly_dir_unix()
-{
-#if INI_OS_LINUX
-    char TEST_FILE[] = "test_save_readonly_dir_unix.ini";
-    mkdir("readonly_dir", 0777);
-    // chmod("readonly_dir", 0444); // r--r--r--
-
-    // ini_context_t *ctx = ini_create_context();
-    // assert(ctx != NULL);
-
-    // create_test_file(TEST_FILE, "[section]\nkey=value\n");
-    // ini_error_t err = ini_load(ctx, TEST_FILE);
-    // assert(err == INI_SUCCESS);
-
-    // err = ini_save(ctx, "readonly_dir/test.ini");
-    // assert(err == INI_FILE_PERMISSION_DENIED);
-
-    // chmod("readonly_dir", 0777); // Restore permissions
-    // rmdir("readonly_dir");
-    // err = ini_free(ctx);
-    // assert(err == INI_SUCCESS);
-    // remove_test_file(TEST_FILE);
-    // print_success("test_save_readonly_dir_unix passed\n");
-#endif
-}
-
-// --- Dirty Test 3: Save to Read-Only Directory (Windows) ---
+// --- Dirty Test 2: Save to Read-Only Directory (Windows) ---
 void test_save_readonly_dir_windows()
 {
 #if INI_OS_WINDOWS
@@ -111,22 +84,22 @@ void test_save_readonly_dir_windows()
     assert(ctx != NULL);
 
     create_test_file(TEST_FILE, "[section]\nkey=value\n");
-    ini_error_t err = ini_load(ctx, TEST_FILE);
-    assert(err == INI_SUCCESS);
+    ini_status_t err = ini_load(ctx, TEST_FILE);
+    assert(err == INI_STATUS_SUCCESS);
 
     err = ini_save(ctx, "readonly_dir\\test.ini");
-    assert(err == INI_FILE_PERMISSION_DENIED);
+    assert(err == INI_STATUS_FILE_PERMISSION_DENIED);
 
     SetFileAttributes("readonly_dir", FILE_ATTRIBUTE_NORMAL);
     RemoveDirectory("readonly_dir");
     err = ini_free(ctx);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     remove_test_file(TEST_FILE);
     print_success("test_save_readonly_dir_windows passed\n");
 #endif
 }
 
-// --- Dirty Test 4: Corrupt INI File ---
+// --- Dirty Test 3: Corrupt INI File ---
 void test_corrupt_ini_file()
 {
     char TEST_FILE[] = "test_corrupt_ini_file.ini";
@@ -135,16 +108,16 @@ void test_corrupt_ini_file()
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
 
-    ini_error_t err = ini_load(ctx, TEST_FILE);
-    assert(err == INI_FILE_BAD_FORMAT);
+    ini_status_t err = ini_load(ctx, TEST_FILE);
+    assert(err == INI_STATUS_FILE_BAD_FORMAT);
 
     err = ini_free(ctx);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     remove_test_file(TEST_FILE);
     print_success("test_corrupt_ini_file passed\n");
 }
 
-// --- Dirty Test 5: Empty File ---
+// --- Dirty Test 4: Empty File ---
 void test_empty_file()
 {
     char TEST_FILE[] = "test_empty_file.ini";
@@ -153,15 +126,15 @@ void test_empty_file()
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
 
-    ini_error_t err = ini_load(ctx, TEST_FILE);
+    ini_status_t err = ini_load(ctx, TEST_FILE);
     size_t file_size = 0;
-    ini_fs_error_t fs_err = ini_get_file_size(TEST_FILE, &file_size);
-    assert(fs_err == INI_FS_SUCCESS);
+    ini_status_t fs_err = ini_get_file_size(TEST_FILE, &file_size);
+    assert(fs_err == INI_STATUS_SUCCESS);
     assert(file_size == 0);
-    assert(err == INI_FILE_EMPTY);
+    assert(err == INI_STATUS_FILE_EMPTY);
 
     err = ini_free(ctx);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     remove_test_file(TEST_FILE);
     print_success("test_empty_file passed\n");
 }
@@ -175,35 +148,35 @@ void test_unicode_support()
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
 
-    ini_error_t err = ini_load(ctx, TEST_FILE);
-    assert(err == INI_SUCCESS);
+    ini_status_t err = ini_load(ctx, TEST_FILE);
+    assert(err == INI_STATUS_SUCCESS);
 
     err = ini_save(ctx, OUTPUT_FILE);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
 
     // Verify the saved file
     ini_context_t *ctx2 = ini_create_context();
     assert(ctx2 != NULL);
 
     err = ini_load(ctx2, OUTPUT_FILE);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
 
     char *value = NULL;
     err = ini_get_value(ctx2, "секция", "ключ", &value);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     assert(strcmp(value, "значение") == 0);
     free(value);
 
     err = ini_free(ctx);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     err = ini_free(ctx2);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     remove_test_file(TEST_FILE);
     remove_test_file(OUTPUT_FILE);
     print_success("test_unicode_support passed\n");
 }
 
-// --- Dirty Test 6: Invalid UTF-8 ---
+// --- Dirty Test 5: Invalid UTF-8 ---
 void test_invalid_utf8()
 {
     char TEST_FILE[] = "test_invalid_utf8.ini";
@@ -217,16 +190,16 @@ void test_invalid_utf8()
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
 
-    ini_error_t err = ini_load(ctx, TEST_FILE);
-    assert(err == INI_FILE_BAD_FORMAT);
+    ini_status_t err = ini_load(ctx, TEST_FILE);
+    assert(err == INI_STATUS_FILE_BAD_FORMAT);
 
     err = ini_free(ctx);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     remove_test_file(TEST_FILE);
     print_success("test_invalid_utf8 passed\n");
 }
 
-// --- Dirty Test 7: Binary Data ---
+// --- Dirty Test 6: Binary Data ---
 void test_binary_data()
 {
     char TEST_FILE[] = "test_binary_data.ini";
@@ -239,16 +212,16 @@ void test_binary_data()
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
 
-    ini_error_t err = ini_load(ctx, TEST_FILE);
-    assert(err == INI_FILE_BAD_FORMAT);
+    ini_status_t err = ini_load(ctx, TEST_FILE);
+    assert(err == INI_STATUS_FILE_BAD_FORMAT);
 
     err = ini_free(ctx);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     remove_test_file(TEST_FILE);
     print_success("test_binary_data passed\n");
 }
 
-// --- Dirty Test 8: Line Too Long ---
+// --- Dirty Test 7: Line Too Long ---
 void test_line_too_long()
 {
     char TEST_FILE[] = "test_line_too_long.ini";
@@ -262,16 +235,16 @@ void test_line_too_long()
 
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
-    ini_error_t err = ini_load(ctx, TEST_FILE);
-    assert(err == INI_FILE_BAD_FORMAT);
+    ini_status_t err = ini_load(ctx, TEST_FILE);
+    assert(err == INI_STATUS_FILE_BAD_FORMAT);
 
     err = ini_free(ctx);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     remove_test_file(TEST_FILE);
     print_success("test_line_too_long passed\n");
 }
 
-// --- Dirty Test 9: Missing Section ---
+// --- Dirty Test 8: Missing Section ---
 void test_missing_section()
 {
     char TEST_FILE[] = "test_missing_section.ini";
@@ -280,16 +253,16 @@ void test_missing_section()
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
 
-    ini_error_t err = ini_load(ctx, TEST_FILE);
-    assert(err == INI_FILE_BAD_FORMAT);
+    ini_status_t err = ini_load(ctx, TEST_FILE);
+    assert(err == INI_STATUS_FILE_BAD_FORMAT);
 
     err = ini_free(ctx);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     remove_test_file(TEST_FILE);
     print_success("test_missing_section passed\n");
 }
 
-// --- Dirty Test 10: Escaped Characters ---
+// --- Dirty Test 9: Escaped Characters ---
 void test_escaped_characters()
 {
     char TEST_FILE[] = "test_escaped_characters.ini";
@@ -299,11 +272,11 @@ void test_escaped_characters()
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
 
-    ini_error_t err = ini_load(ctx, TEST_FILE);
-    assert(err == INI_FILE_BAD_FORMAT);
+    ini_status_t err = ini_load(ctx, TEST_FILE);
+    assert(err == INI_STATUS_FILE_BAD_FORMAT);
 
     err = ini_free(ctx);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     remove_test_file(TEST_FILE);
     print_success("test_escaped_characters passed\n");
 }
@@ -317,27 +290,27 @@ void test_nested_sections()
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
 
-    ini_error_t err = ini_load(ctx, TEST_FILE);
-    assert(err == INI_SUCCESS);
+    ini_status_t err = ini_load(ctx, TEST_FILE);
+    assert(err == INI_STATUS_SUCCESS);
 
     char *value = NULL;
     err = ini_get_value(ctx, "parent", "key1", &value);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     assert(strcmp(value, "value1") == 0);
     free(value);
 
     err = ini_get_value(ctx, "parent.child", "key2", &value);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     assert(strcmp(value, "value2") == 0);
     free(value);
 
     err = ini_free(ctx);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     remove_test_file(TEST_FILE);
     print_success("test_nested_sections passed\n");
 }
 
-// --- Dirty Test 11: Malformed Key ---
+// --- Dirty Test 10: Malformed Key ---
 void test_malformed_key()
 {
     char TEST_FILE[] = "test_malformed_key.ini";
@@ -346,16 +319,16 @@ void test_malformed_key()
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
 
-    ini_error_t err = ini_load(ctx, TEST_FILE);
-    assert(err == INI_FILE_BAD_FORMAT);
+    ini_status_t err = ini_load(ctx, TEST_FILE);
+    assert(err == INI_STATUS_FILE_BAD_FORMAT);
 
     err = ini_free(ctx);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     remove_test_file(TEST_FILE);
     print_success("test_malformed_key passed\n");
 }
 
-// --- Dirty Test 12: Malformed Value ---
+// --- Dirty Test 11: Malformed Value ---
 void test_malformed_value()
 {
     char TEST_FILE[] = "test_malformed_value.ini";
@@ -364,17 +337,17 @@ void test_malformed_value()
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
 
-    ini_error_t err = ini_load(ctx, TEST_FILE);
-    assert(err == INI_SUCCESS); // Empty values are allowed
+    ini_status_t err = ini_load(ctx, TEST_FILE);
+    assert(err == INI_STATUS_SUCCESS); // Empty values are allowed
 
     char *value = NULL;
     err = ini_get_value(ctx, "section", "key", &value);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     assert(strcmp(value, "") == 0);
     free(value);
 
     err = ini_free(ctx);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     remove_test_file(TEST_FILE);
     print_success("test_malformed_value passed\n");
 }
@@ -388,22 +361,22 @@ void test_comments()
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
 
-    ini_error_t err = ini_load(ctx, TEST_FILE);
-    assert(err == INI_SUCCESS);
+    ini_status_t err = ini_load(ctx, TEST_FILE);
+    assert(err == INI_STATUS_SUCCESS);
 
     char *value = NULL;
     err = ini_get_value(ctx, "section", "key", &value);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     assert(strcmp(value, "value") == 0);
     free(value);
 
     err = ini_free(ctx);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     remove_test_file(TEST_FILE);
     print_success("test_comments passed\n");
 }
 
-// --- Dirty Test 13: Invalid Comment ---
+// --- Dirty Test 12: Invalid Comment ---
 void test_invalid_comment()
 {
     char TEST_FILE[] = "test_invalid_comment.ini";
@@ -412,17 +385,17 @@ void test_invalid_comment()
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
 
-    ini_error_t err = ini_load(ctx, TEST_FILE);
-    assert(err == INI_SUCCESS); // Non-standard comments are ignored
+    ini_status_t err = ini_load(ctx, TEST_FILE);
+    assert(err == INI_STATUS_SUCCESS); // Non-standard comments are ignored
 
     char *value = NULL;
     err = ini_get_value(ctx, "section", "key", &value);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     assert(strcmp(value, "value") == 0);
     free(value);
 
     err = ini_free(ctx);
-    assert(err == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     remove_test_file(TEST_FILE);
     print_success("test_invalid_comment passed\n");
 }
@@ -440,7 +413,6 @@ int main()
 
     // Dirty Tests
     test_load_nonexistent_file();
-    test_save_readonly_dir_unix();
     test_save_readonly_dir_windows();
     test_corrupt_ini_file();
     test_empty_file();

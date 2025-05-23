@@ -20,8 +20,8 @@ void test_create_context_success()
 {
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
-    ini_error_t err = ini_free(ctx);
-    assert(err == INI_SUCCESS);
+    ini_status_t err = ini_free(ctx);
+    assert(err == INI_STATUS_SUCCESS);
     print_success("test_create_context_success passed\n");
 }
 
@@ -30,8 +30,8 @@ void test_create_context_platform_specific()
     // Test platform-specific initialization (Windows, Unix, Apple)
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
-    ini_error_t err = ini_free(ctx);
-    assert(err == INI_SUCCESS);
+    ini_status_t err = ini_free(ctx);
+    assert(err == INI_STATUS_SUCCESS);
     print_success("test_create_context_platform_specific passed\n");
 }
 
@@ -42,10 +42,10 @@ void test_create_context_reentrancy()
     ini_context_t *ctx2 = ini_create_context();
     assert(ctx1 != NULL);
     assert(ctx2 != NULL);
-    ini_error_t err1 = ini_free(ctx1);
-    ini_error_t err2 = ini_free(ctx2);
-    assert(err1 == INI_SUCCESS);
-    assert(err2 == INI_SUCCESS);
+    ini_status_t err1 = ini_free(ctx1);
+    ini_status_t err2 = ini_free(ctx2);
+    assert(err1 == INI_STATUS_SUCCESS);
+    assert(err2 == INI_STATUS_SUCCESS);
     print_success("test_create_context_reentrancy passed\n");
 }
 
@@ -54,8 +54,8 @@ void test_create_context_resource_leak()
     // Ensure no resource leaks by creating and freeing contexts
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
-    ini_error_t err = ini_free(ctx);
-    assert(err == INI_SUCCESS);
+    ini_status_t err = ini_free(ctx);
+    assert(err == INI_STATUS_SUCCESS);
     print_success("test_create_context_resource_leak passed\n");
 }
 
