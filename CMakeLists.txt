@@ -15,6 +15,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(INIPARSER_TESTS "Build tests" ON)
 option(INIPARSER_EXAMPLES "Build examples" ON)
 
+# Build type settings - default to STATIC for tests
+if(NOT DEFINED BUILD_SHARED_LIBS)
+    set(BUILD_SHARED_LIBS OFF)
+endif()
+
 # ================ Library ====================
 set(INI_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(INI_SOURCE_FILE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -41,7 +46,23 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     C_STANDARD 99
     C_STANDARD_REQUIRED ON
     OUTPUT_NAME ${PROJECT_NAME}
+    POSITION_INDEPENDENT_CODE ON
 )
+
+# Define INIPARSER_EXPORTS for the library itself
+target_compile_definitions(${PROJECT_NAME} PRIVATE INIPARSER_EXPORTS)
+
+# For static libraries, consumers should not import symbols
+if(NOT BUILD_SHARED_LIBS)
+    target_compile_definitions(${PROJECT_NAME} INTERFACE INI_IMPLEMENTATION)
+endif()
+
+# Windows DLL export settings
+if(WIN32 AND BUILD_SHARED_LIBS)
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        WINDOWS_EXPORT_ALL_SYMBOLS ON
+    )
+endif()
 
 # ================ C++ Wrapper Library ====================
 set(CPP_WRAPPER_NAME ${PROJECT_NAME}_cpp)
@@ -65,13 +86,11 @@ set_target_properties(${CPP_WRAPPER_NAME} PROPERTIES
     CXX_STANDARD 11
     CXX_STANDARD_REQUIRED ON
     OUTPUT_NAME ${PROJECT_NAME}_cpp
+    POSITION_INDEPENDENT_CODE ON
 )
 
-# Windows DLL export settings
+# Windows DLL export settings for C++ wrapper
 if(WIN32 AND BUILD_SHARED_LIBS)
-    set_target_properties(${PROJECT_NAME} PROPERTIES
-        WINDOWS_EXPORT_ALL_SYMBOLS ON
-    )
     set_target_properties(${CPP_WRAPPER_NAME} PROPERTIES
         WINDOWS_EXPORT_ALL_SYMBOLS ON
     )
