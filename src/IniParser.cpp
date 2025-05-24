@@ -57,9 +57,9 @@ namespace ini
             other.populateCache();
 
             // Copy data into our new context without using the cache
-            for (const auto &section : other.m_data)
+            for (auto const &section : other.m_data)
             {
-                for (const auto &pair : section.second)
+                for (auto const &pair : section.second)
                 {
                     // Use the low-level setString but don't rely on cache
                     auto *section_ht = ini_get_section_ht(m_context.get()->sections, section.first.c_str());
@@ -102,9 +102,9 @@ namespace ini
                 other.populateCache();
 
                 // Copy data into our new context
-                for (const auto &section : other.m_data)
+                for (auto const &section : other.m_data)
                 {
-                    for (const auto &pair : section.second)
+                    for (auto const &pair : section.second)
                     {
                         // Use the low-level approach for better performance and safety
                         auto *section_ht = ini_get_section_ht(m_context.get()->sections, section.first.c_str());
@@ -352,7 +352,7 @@ namespace ini
         std::vector<std::string> names;
         names.reserve(m_data.size());
 
-        for (const auto &pair : m_data)
+        for (auto const &pair : m_data)
         {
             names.push_back(pair.first);
         }
@@ -366,7 +366,7 @@ namespace ini
         std::vector<std::string> names;
         names.reserve(section_map.size());
 
-        for (const auto &pair : section_map)
+        for (auto const &pair : section_map)
         {
             names.push_back(pair.first);
         }
@@ -411,7 +411,7 @@ namespace ini
 
         // Fallback: use populateCache and print manually
         populateCache();
-        for (const auto &section : m_data)
+        for (auto const &section : m_data)
         {
             if (!section.first.empty())
             {
@@ -422,7 +422,7 @@ namespace ini
                 stream << "[Global]\n";
             }
 
-            for (const auto &pair : section.second)
+            for (auto const &pair : section.second)
             {
                 stream << "  " << pair.first << " = " << pair.second << "\n";
             }
