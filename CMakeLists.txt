@@ -3,15 +3,17 @@ cmake_minimum_required(VERSION 3.15)
 set(PROJECT_NAME iniparser)
 project(${PROJECT_NAME}
     VERSION 1.0.0
-    LANGUAGES C
-    DESCRIPTION "Lightweight INI parser library for C"
+    LANGUAGES C CXX
+    DESCRIPTION "Lightweight INI parser library for C. Also, it has a C++11 wrapper."
 )
 
 # ================ Main settings ================
 set(CMAKE_C_STANDARD 99)
+set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
-option(BUILD_SHARED_LIBS "Build shared library" ON)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(INIPARSER_TESTS "Build tests" ON)
+option(INIPARSER_EXAMPLES "Build examples" ON)
 
 # ================ Library ====================
 set(INI_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include)
@@ -25,15 +27,74 @@ set(INI_SOURCE_FILES
     ${INI_SOURCE_FILE_DIR}/ini_string.c
 )
 
+# C Library
 include_directories(${INI_INCLUDE_DIRS})
-add_library(${PROJECT_NAME}
-    ${INI_SOURCE_FILES}
-)
+add_library(${PROJECT_NAME} ${INI_SOURCE_FILES})
 
 target_include_directories(${PROJECT_NAME} PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
+
+# Set C library properties
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    C_STANDARD 99
+    C_STANDARD_REQUIRED ON
+    OUTPUT_NAME ${PROJECT_NAME}
+)
+
+# ================ C++ Wrapper Library ====================
+set(CPP_WRAPPER_NAME ${PROJECT_NAME}_cpp)
+set(CPP_SOURCE_FILES
+    ${INI_SOURCE_FILE_DIR}/IniParser.cpp
+)
+
+# C++ Wrapper Library
+add_library(${CPP_WRAPPER_NAME} ${CPP_SOURCE_FILES})
+
+target_include_directories(${CPP_WRAPPER_NAME} PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+
+# Link C++ wrapper to C library
+target_link_libraries(${CPP_WRAPPER_NAME} PUBLIC ${PROJECT_NAME})
+
+# Set C++ library properties
+set_target_properties(${CPP_WRAPPER_NAME} PROPERTIES
+    CXX_STANDARD 11
+    CXX_STANDARD_REQUIRED ON
+    OUTPUT_NAME ${PROJECT_NAME}_cpp
+)
+
+# Windows DLL export settings
+if(WIN32 AND BUILD_SHARED_LIBS)
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        WINDOWS_EXPORT_ALL_SYMBOLS ON
+    )
+    set_target_properties(${CPP_WRAPPER_NAME} PROPERTIES
+        WINDOWS_EXPORT_ALL_SYMBOLS ON
+    )
+endif()
+
+# ================ Examples ======================
+if(INIPARSER_EXAMPLES)
+    set(CPP_EXAMPLE_NAME cpp_example)
+
+    # C++ Example
+    add_executable(${CPP_EXAMPLE_NAME}
+        examples/cpp_example.cpp
+    )
+
+    # Link example to C++ wrapper (which automatically pulls in C library)
+    target_link_libraries(${CPP_EXAMPLE_NAME} PRIVATE ${CPP_WRAPPER_NAME})
+
+    # Set C++ example properties
+    set_target_properties(${CPP_EXAMPLE_NAME} PROPERTIES
+        CXX_STANDARD 11
+        CXX_STANDARD_REQUIRED ON
+    )
+endif()
 
 # ================ Testing ======================
 if(INIPARSER_TESTS)
@@ -74,7 +135,7 @@ if(INIPARSER_TESTS)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
     # For some reasons, Github Actions fails to run filesystem tests.
-    # add_test(NAME ${INI_FILESYSTEM_TESTS} COMMAND ${INI_FILESYSTEM_TESTS})
+    add_test(NAME ${INI_FILESYSTEM_TESTS} COMMAND ${INI_FILESYSTEM_TESTS})
     add_test(NAME ${INI_HASH_TABLE_TESTS} COMMAND ${INI_HASH_TABLE_TESTS})
     add_test(NAME ${INI_MUTEX_TESTS} COMMAND ${INI_MUTEX_TESTS})
     add_test(NAME ${INI_PARSER_TESTS} COMMAND ${INI_PARSER_TESTS})
