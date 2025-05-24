@@ -359,7 +359,7 @@ void *thread_write_ini(void *arg)
     return NULL;
 }
 
-// // Test concurrent reading from the same context
+// Test concurrent reading from the same context
 // void test_concurrent_reads()
 // {
 //     // Create a large INI file
@@ -409,7 +409,7 @@ void *thread_write_ini(void *arg)
 
 //     print_success("test_concurrent_reads passed\n");
 // }
-// #endif
+#endif
 
 // Test memory usage with very large files
 void test_memory_usage()
@@ -529,6 +529,10 @@ int main(int argc, char *argv[])
     test_large_file_load();
     test_large_file_save();
     test_large_keys_values();
+
+    // #if INI_OS_WINDOWS || INI_OS_LINUX
+    //     test_concurrent_reads();
+    // #endif
 
     test_memory_usage();
     test_corrupt_files();
