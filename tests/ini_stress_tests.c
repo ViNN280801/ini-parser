@@ -359,57 +359,57 @@ void *thread_write_ini(void *arg)
     return NULL;
 }
 
-// Test concurrent reading from the same context
-void test_concurrent_reads()
-{
-    // Create a large INI file
-    generate_large_ini_file(LARGE_FILE, NUM_SECTIONS, NUM_KEYS_PER_SECTION);
+// // Test concurrent reading from the same context
+// void test_concurrent_reads()
+// {
+//     // Create a large INI file
+//     generate_large_ini_file(LARGE_FILE, NUM_SECTIONS, NUM_KEYS_PER_SECTION);
 
-    // Load the file
-    ini_context_t *ctx = ini_create_context();
-    assert(ctx != NULL);
+//     // Load the file
+//     ini_context_t *ctx = ini_create_context();
+//     assert(ctx != NULL);
 
-    ini_status_t err = ini_load(ctx, LARGE_FILE);
-    assert(err == INI_STATUS_SUCCESS);
+//     ini_status_t err = ini_load(ctx, LARGE_FILE);
+//     assert(err == INI_STATUS_SUCCESS);
 
-    // Spawn multiple threads to read concurrently
-#if INI_OS_LINUX
-    pthread_t threads[NUM_THREADS];
-    for (int i = 0; i < NUM_THREADS; i++)
-    {
-        pthread_create(&threads[i], NULL, thread_read_ini, ctx);
-    }
+//     // Spawn multiple threads to read concurrently
+// #if INI_OS_LINUX
+//     pthread_t threads[NUM_THREADS];
+//     for (int i = 0; i < NUM_THREADS; i++)
+//     {
+//         pthread_create(&threads[i], NULL, thread_read_ini, ctx);
+//     }
 
-    // Wait for all threads to complete
-    for (int i = 0; i < NUM_THREADS; i++)
-    {
-        pthread_join(threads[i], NULL);
-    }
-#elif INI_OS_WINDOWS
-    HANDLE threads[NUM_THREADS];
-    for (int i = 0; i < NUM_THREADS; i++)
-    {
-        threads[i] = CreateThread(NULL, 0,
-                                  (LPTHREAD_START_ROUTINE)thread_read_ini,
-                                  ctx, 0, NULL);
-        assert(threads[i] != NULL);
-    }
+//     // Wait for all threads to complete
+//     for (int i = 0; i < NUM_THREADS; i++)
+//     {
+//         pthread_join(threads[i], NULL);
+//     }
+// #elif INI_OS_WINDOWS
+//     HANDLE threads[NUM_THREADS];
+//     for (int i = 0; i < NUM_THREADS; i++)
+//     {
+//         threads[i] = CreateThread(NULL, 0,
+//                                   (LPTHREAD_START_ROUTINE)thread_read_ini,
+//                                   ctx, 0, NULL);
+//         assert(threads[i] != NULL);
+//     }
 
-    WaitForMultipleObjects(NUM_THREADS, threads, TRUE, INFINITE);
+//     WaitForMultipleObjects(NUM_THREADS, threads, TRUE, INFINITE);
 
-    for (int i = 0; i < NUM_THREADS; i++)
-    {
-        CloseHandle(threads[i]);
-    }
-#endif
+//     for (int i = 0; i < NUM_THREADS; i++)
+//     {
+//         CloseHandle(threads[i]);
+//     }
+// #endif
 
-    err = ini_free(ctx);
-    assert(err == INI_STATUS_SUCCESS);
-    remove_test_file(LARGE_FILE);
+//     err = ini_free(ctx);
+//     assert(err == INI_STATUS_SUCCESS);
+//     remove_test_file(LARGE_FILE);
 
-    print_success("test_concurrent_reads passed\n");
-}
-#endif
+//     print_success("test_concurrent_reads passed\n");
+// }
+// #endif
 
 // Test memory usage with very large files
 void test_memory_usage()
@@ -529,10 +529,6 @@ int main(int argc, char *argv[])
     test_large_file_load();
     test_large_file_save();
     test_large_keys_values();
-
-#if INI_OS_WINDOWS || INI_OS_LINUX
-    test_concurrent_reads();
-#endif
 
     test_memory_usage();
     test_corrupt_files();

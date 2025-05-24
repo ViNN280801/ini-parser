@@ -10,6 +10,7 @@
 
 # VS Code files
 .vscode/
+.cursor/
 
 # Build files
 build/

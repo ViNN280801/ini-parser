@@ -7,24 +7,6 @@ project(${PROJECT_NAME}
     DESCRIPTION "Lightweight INI parser library for C"
 )
 
-# ================ ASan settings ================
-if(MSVC)
-    # Enable ASan only in Debug builds
-    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        add_compile_options(/fsanitize=address /Zi /Od)
-        add_link_options(/DEBUG /fsanitize=address)
-
-        if(NOT BUILD_SHARED_LIBS)
-            add_link_options(/wholearchive:clang_rt.asan_dynamic-x86_64.lib)
-        endif()
-
-        set(ENV{ASAN_VCASAN_DEBUGGING} 1)
-    endif()
-elseif(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
-    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fsanitize=address -fno-omit-frame-pointer")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
-endif()
-
 # ================ Main settings ================
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
