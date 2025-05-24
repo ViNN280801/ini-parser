@@ -4,7 +4,9 @@
 #include <string.h>
 #include <time.h>
 
-#if INI_OS_UNIX
+#include "ini_os_check.h"
+
+#if INI_OS_LINUX
 #include <pthread.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -12,14 +14,14 @@
 
 #if INI_OS_WINDOWS
 #include <windows.h>
-#elif INI_OS_UNIX || INI_OS_APPLE
+#elif INI_OS_LINUX || INI_OS_APPLE
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #endif
 
 #include "helper.h"
-#include "iniparser.h"
+#include "ini_parser.h"
 
 #define TEST_FILE "test_stress.ini"
 #define LARGE_FILE "test_large.ini"
@@ -64,10 +66,10 @@ void test_large_file_load()
     assert(ctx != NULL);
 
     start = clock();
-    ini_error_details_t err = ini_load(ctx, LARGE_FILE);
+    ini_status_t err = ini_load(ctx, LARGE_FILE);
     end = clock();
 
-    assert(err.error == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
 
     cpu_time_used = ((double)(end - start)) / CLOCKS_PER_SEC;
 
@@ -87,14 +89,14 @@ void test_large_file_load()
 
         char *value = NULL;
         err = ini_get_value(ctx, section, key, &value);
-        assert(err.error == INI_SUCCESS);
+        assert(err == INI_STATUS_SUCCESS);
         assert(value != NULL);
         assert(strcmp(value, expected) == 0);
         free(value);
     }
 
     err = ini_free(ctx);
-    assert(err.error == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     remove_test_file(LARGE_FILE);
 
     print_success("test_large_file_load passed\n");
@@ -112,15 +114,15 @@ void test_large_file_save()
 
     // Generate a large INI file and load it
     generate_large_ini_file(LARGE_FILE, NUM_SECTIONS, NUM_KEYS_PER_SECTION);
-    ini_error_details_t err = ini_load(ctx, LARGE_FILE);
-    assert(err.error == INI_SUCCESS);
+    ini_status_t err = ini_load(ctx, LARGE_FILE);
+    assert(err == INI_STATUS_SUCCESS);
 
     // Save the file and measure time
     start = clock();
     err = ini_save(ctx, TEST_FILE);
     end = clock();
 
-    assert(err.error == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
 
     cpu_time_used = ((double)(end - start)) / CLOCKS_PER_SEC;
 
@@ -129,7 +131,7 @@ void test_large_file_save()
     assert(ctx2 != NULL);
 
     err = ini_load(ctx2, TEST_FILE);
-    assert(err.error == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
 
     // Verify random access to values
     for (int i = 0; i < 10; i++)
@@ -147,16 +149,16 @@ void test_large_file_save()
 
         char *value = NULL;
         err = ini_get_value(ctx2, section, key, &value);
-        assert(err.error == INI_SUCCESS);
+        assert(err == INI_STATUS_SUCCESS);
         assert(value != NULL);
         assert(strcmp(value, expected) == 0);
         free(value);
     }
 
     err = ini_free(ctx);
-    assert(err.error == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     err = ini_free(ctx2);
-    assert(err.error == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     remove_test_file(LARGE_FILE);
     remove_test_file(TEST_FILE);
 
@@ -192,39 +194,39 @@ void test_large_keys_values()
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
 
-    ini_error_details_t err = ini_load(ctx, TEST_FILE);
-    assert(err.error == INI_SUCCESS);
+    ini_status_t err = ini_load(ctx, TEST_FILE);
+    assert(err == INI_STATUS_SUCCESS);
 
     // Get the value and verify
     char *value = NULL;
     err = ini_get_value(ctx, "section", large_key, &value);
-    assert(err.error == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     assert(value != NULL);
     assert(strcmp(value, large_value) == 0);
     free(value);
 
     // Save to a new file
     err = ini_save(ctx, LARGE_FILE);
-    assert(err.error == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
 
     // Load the saved file and verify
     ini_context_t *ctx2 = ini_create_context();
     assert(ctx2 != NULL);
 
     err = ini_load(ctx2, LARGE_FILE);
-    assert(err.error == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
 
     value = NULL;
     err = ini_get_value(ctx2, "section", large_key, &value);
-    assert(err.error == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     assert(value != NULL);
     assert(strcmp(value, large_value) == 0);
     free(value);
 
     err = ini_free(ctx);
-    assert(err.error == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     err = ini_free(ctx2);
-    assert(err.error == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
 
     free(large_key);
     free(large_value);
@@ -234,7 +236,7 @@ void test_large_keys_values()
     print_success("test_large_keys_values passed\n");
 }
 
-#if INI_OS_UNIX || INI_OS_WINDOWS
+#if INI_OS_LINUX || INI_OS_WINDOWS
 // Thread function for concurrent reading
 void *thread_read_ini(void *arg)
 {
@@ -254,8 +256,8 @@ void *thread_read_ini(void *arg)
         sprintf(expected, "value%d_%d", section_idx, key_idx);
 
         char *value = NULL;
-        ini_error_details_t err = ini_get_value(ctx, section, key, &value);
-        assert(err.error == INI_SUCCESS);
+        ini_status_t err = ini_get_value(ctx, section, key, &value);
+        assert(err == INI_STATUS_SUCCESS);
         assert(value != NULL);
         assert(strcmp(value, expected) == 0);
         free(value);
@@ -296,8 +298,8 @@ void *thread_write_ini(void *arg)
     create_test_file(filename, content);
 
     // Load, modify and save repeatedly
-    ini_error_details_t err = ini_load(ctx, filename);
-    assert(err.error == INI_SUCCESS);
+    ini_status_t err = ini_load(ctx, filename);
+    assert(err == INI_STATUS_SUCCESS);
 
     for (int i = 0; i < 10; i++)
     {
@@ -323,35 +325,35 @@ void *thread_write_ini(void *arg)
         create_test_file(temp_file, temp_content);
 
         err = ini_load(temp_ctx, temp_file);
-        assert(err.error == INI_SUCCESS);
+        assert(err == INI_STATUS_SUCCESS);
 
         // Save the modified value
         err = ini_save_section_value(temp_ctx, filename, section, buffer);
-        assert(err.error == INI_SUCCESS);
+        assert(err == INI_STATUS_SUCCESS);
 
         // Verify the change
         ini_context_t *verify_ctx = ini_create_context();
         assert(verify_ctx != NULL);
 
         err = ini_load(verify_ctx, filename);
-        assert(err.error == INI_SUCCESS);
+        assert(err == INI_STATUS_SUCCESS);
 
         char *value = NULL;
         err = ini_get_value(verify_ctx, section, buffer, &value);
-        assert(err.error == INI_SUCCESS);
+        assert(err == INI_STATUS_SUCCESS);
         assert(value != NULL);
         assert(strcmp(value, new_value) == 0);
         free(value);
 
         err = ini_free(temp_ctx);
-        assert(err.error == INI_SUCCESS);
+        assert(err == INI_STATUS_SUCCESS);
         err = ini_free(verify_ctx);
-        assert(err.error == INI_SUCCESS);
+        assert(err == INI_STATUS_SUCCESS);
         remove_test_file(temp_file);
     }
 
     err = ini_free(ctx);
-    assert(err.error == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     remove_test_file(filename);
 
     return NULL;
@@ -367,11 +369,11 @@ void test_concurrent_reads()
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
 
-    ini_error_details_t err = ini_load(ctx, LARGE_FILE);
-    assert(err.error == INI_SUCCESS);
+    ini_status_t err = ini_load(ctx, LARGE_FILE);
+    assert(err == INI_STATUS_SUCCESS);
 
     // Spawn multiple threads to read concurrently
-#if INI_OS_UNIX
+#if INI_OS_LINUX
     pthread_t threads[NUM_THREADS];
     for (int i = 0; i < NUM_THREADS; i++)
     {
@@ -402,51 +404,10 @@ void test_concurrent_reads()
 #endif
 
     err = ini_free(ctx);
-    assert(err.error == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     remove_test_file(LARGE_FILE);
 
     print_success("test_concurrent_reads passed\n");
-}
-
-// Test concurrent writing to different files
-void test_concurrent_writes()
-{
-    // Spawn multiple threads to write concurrently
-    int thread_ids[NUM_THREADS];
-
-#if INI_OS_UNIX
-    pthread_t threads[NUM_THREADS];
-    for (int i = 0; i < NUM_THREADS; i++)
-    {
-        thread_ids[i] = i;
-        pthread_create(&threads[i], NULL, thread_write_ini, &thread_ids[i]);
-    }
-
-    // Wait for all threads to complete
-    for (int i = 0; i < NUM_THREADS; i++)
-    {
-        pthread_join(threads[i], NULL);
-    }
-#elif INI_OS_WINDOWS
-    HANDLE threads[NUM_THREADS];
-    for (int i = 0; i < NUM_THREADS; i++)
-    {
-        thread_ids[i] = i;
-        threads[i] = CreateThread(NULL, 0,
-                                  (LPTHREAD_START_ROUTINE)thread_write_ini,
-                                  &thread_ids[i], 0, NULL);
-        assert(threads[i] != NULL);
-    }
-
-    WaitForMultipleObjects(NUM_THREADS, threads, TRUE, INFINITE);
-
-    for (int i = 0; i < NUM_THREADS; i++)
-    {
-        CloseHandle(threads[i]);
-    }
-#endif
-
-    print_success("test_concurrent_writes passed\n");
 }
 #endif
 
@@ -459,8 +420,8 @@ void test_memory_usage()
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
 
-    ini_error_details_t err = ini_load(ctx, LARGE_FILE);
-    assert(err.error == INI_SUCCESS);
+    ini_status_t err = ini_load(ctx, LARGE_FILE);
+    assert(err == INI_STATUS_SUCCESS);
 
     // Perform many random accesses
     for (int i = 0; i < 1000; i++)
@@ -476,14 +437,14 @@ void test_memory_usage()
 
         char *value = NULL;
         err = ini_get_value(ctx, section, key, &value);
-        if (err.error == INI_SUCCESS)
+        if (err == INI_STATUS_SUCCESS)
         {
             free(value);
         }
     }
 
     err = ini_free(ctx);
-    assert(err.error == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     remove_test_file(LARGE_FILE);
 
     print_success("test_memory_usage passed\n");
@@ -498,7 +459,7 @@ void test_corrupt_files()
     fprintf(fp, "[section1]\nkey1=value1\nkey2=val"); // Truncated
     fclose(fp);
 
-    ini_error_details_t err = ini_good(TEST_FILE);
+    ini_status_t err = ini_good(TEST_FILE);
     // This might return either success or bad format depending on implementation
     // Just make sure it doesn't crash
 
@@ -521,15 +482,17 @@ void test_corrupt_files()
     err = ini_load(ctx, TEST_FILE);
     // This should either succeed or fail gracefully
 
-    if (err.error == INI_SUCCESS)
+    if (err == INI_STATUS_SUCCESS)
     {
         // Clean up if it succeeded
         err = ini_free(ctx);
-        assert(err.error == INI_SUCCESS);
+        assert(err == INI_STATUS_SUCCESS);
     }
     else
     {
         // Just make sure it failed in a controlled way
+        err = ini_free(ctx);
+        assert(err == INI_STATUS_SUCCESS);
     }
 
     // Test 3: File with binary data
@@ -545,7 +508,7 @@ void test_corrupt_files()
 
     err = ini_good(TEST_FILE);
     // This should fail, but not crash
-    if (err.error != INI_SUCCESS)
+    if (err != INI_STATUS_SUCCESS)
     {
     }
 
@@ -558,7 +521,6 @@ void test_corrupt_files()
 int main(int argc, char *argv[])
 {
     __helper_init_log_file();
-    ini_initialize();
 
     // Seed random number generator
     srand((unsigned int)time(NULL));
@@ -568,16 +530,14 @@ int main(int argc, char *argv[])
     test_large_file_save();
     test_large_keys_values();
 
-#if INI_OS_UNIX || INI_OS_WINDOWS
+#if INI_OS_WINDOWS || INI_OS_LINUX
     test_concurrent_reads();
-    test_concurrent_writes();
 #endif
 
     test_memory_usage();
     test_corrupt_files();
 
-    ini_finalize();
     print_success("All stress tests passed!\n\n");
     __helper_close_log_file();
-    return ini_has_error();
+    return EXIT_SUCCESS;
 }

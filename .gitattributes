@@ -1,0 +1,26 @@
+# Auto-detect text files and convert to LF at commit
+* text=auto
+
+# Explicitly specify text files (C/C++, Python, Bash, etc.)
+*.c text
+*.h text
+*.cpp text
+*.hpp text
+*.py text
+*.sh text
+*.md text
+*.txt text
+*.yml text
+*.yaml text
+*.json text
+
+# Exceptions: files that MUST use CRLF (e.g., .bat)
+*.bat text eol=crlf
+
+# Binary files (so Git doesn't touch them)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.zip binary
+*.pdf binary

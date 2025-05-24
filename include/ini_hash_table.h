@@ -4,57 +4,19 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "ini_constants.h"
 #include "ini_export.h"
 #include "ini_mutex.h"
 
-#if INI_OS_WINDOWS
-    #include <windows.h>
-
-    /**
-     * @brief Allocates memory on Windows using HeapAlloc.
-     * @param size Number of bytes to allocate.
-     * @return Pointer to allocated memory (not zero-initialized), or NULL on failure.
-     * @note Uses `HEAP_NO_SERIALIZE` (0) for performance; no thread safety guarantees.
-     */
-    #define ini_ht_malloc(size) HeapAlloc(GetProcessHeap(), 0, size)
-
-    /**
-     * @brief Frees memory allocated by `ini_ht_malloc`.
-     * @param ptr Pointer to memory block to free.
-     */
-    #define ini_ht_free(ptr) HeapFree(GetProcessHeap(), 0, ptr)
-#else
-    /**
-     * @brief Wrapper for standard `malloc` on non-Windows platforms.
-     * @param size Number of bytes to allocate.
-     * @return Pointer to uninitialized memory, or NULL on failure.
-     */
-    #define ini_ht_malloc malloc
-
-    /**
-     * @brief Wrapper for standard `free` on non-Windows platforms.
-     * @param ptr Pointer to memory block to free.
-     */
-    #define ini_ht_free free
-#endif
-
-/**
- * @brief Error codes for hash table operations.
- */
-typedef enum
-{
-    INI_HT_SUCCESS = 0,          ///< Operation succeeded.
-    INI_HT_MEMORY_ERROR,         ///< Memory allocation failed.
-    INI_HT_MUTEX_ERROR,          ///< Mutex operation failed.
-} ini_ht_error_t;
+INI_EXTERN_C_BEGIN
 
 /**
  * @brief Key-value pair for hash table entries.
  */
 typedef struct
 {
-    char *key;                   ///< Null-terminated string key.
-    char *value;                 ///< Null-terminated string value.
+    char *key;   ///< Null-terminated string key.
+    char *value; ///< Null-terminated string value.
 } ini_ht_key_value_t;
 
 /**
@@ -74,8 +36,8 @@ typedef struct
  */
 typedef struct
 {
-    ini_ht_t const *_table;      ///< Pointer to the hash table.
-    size_t _index;               ///< Current iteration index.
+    ini_ht_t const *_table; ///< Pointer to the hash table.
+    size_t _index;          ///< Current iteration index.
 } ini_ht_iterator_t;
 
 /**
@@ -84,20 +46,20 @@ typedef struct
  * @return 64-bit hash value.
  * @see https://en.wikipedia.org/wiki/Fowler–Noll–Vo_hash_function
  */
-uint64_t hash_key(char const *key);
+INI_PUBLIC_API uint64_t hash_key(char const *key);
 
 /**
  * @brief Creates a new hash table.
  * @return Pointer to the table, or NULL on failure.
  * @post Check `ini_ht_last_error()` for failure details.
  */
-ini_ht_t *ini_ht_create(void);
+INI_PUBLIC_API ini_ht_t *ini_ht_create(void);
 
 /**
  * @brief Destroys a hash table and frees all resources.
  * @param table Table to destroy (safe to call with NULL).
  */
-void ini_ht_destroy(ini_ht_t *table);
+INI_PUBLIC_API ini_status_t ini_ht_destroy(ini_ht_t *table);
 
 /**
  * @brief Retrieves a value by key.
@@ -106,7 +68,7 @@ void ini_ht_destroy(ini_ht_t *table);
  * @return Associated value, or NULL if key not found.
  * @note Thread-safe (uses mutex locking).
  */
-char const *ini_ht_get(ini_ht_t *table, char const *key);
+INI_PUBLIC_API char const *ini_ht_get(ini_ht_t *table, char const *key);
 
 /**
  * @brief Inserts or updates a key-value pair.
@@ -116,21 +78,21 @@ char const *ini_ht_get(ini_ht_t *table, char const *key);
  * @return Previous value (if key existed), or NULL.
  * @note Thread-safe (uses mutex locking).
  */
-char const *ini_ht_set(ini_ht_t *table, char const *key, char const *value);
+INI_PUBLIC_API char const *ini_ht_set(ini_ht_t *table, char const *key, char const *value);
 
 /**
  * @brief Returns the number of entries in the table.
  * @param table Hash table to query.
  * @return Entry count.
  */
-size_t ini_ht_length(ini_ht_t *table);
+INI_PUBLIC_API size_t ini_ht_length(ini_ht_t *table);
 
 /**
  * @brief Initializes an iterator for the table.
  * @param table Hash table to iterate over.
  * @return Iterator positioned at the first entry.
  */
-ini_ht_iterator_t ini_ht_iterator(ini_ht_t *table);
+INI_PUBLIC_API ini_ht_iterator_t ini_ht_iterator(ini_ht_t *table);
 
 /**
  * @brief Advances the iterator to the next entry.
@@ -139,15 +101,8 @@ ini_ht_iterator_t ini_ht_iterator(ini_ht_t *table);
  * @param[out] value Set to the current entry's value (do not free).
  * @return 0 on success, -1 if no more entries.
  */
-int ini_ht_next(ini_ht_iterator_t *it, char **key, char **value);
+INI_PUBLIC_API ini_status_t ini_ht_next(ini_ht_iterator_t *it, char **key, char **value);
 
-INI_EXTERN_C_BEGIN
-/**
- * @brief Returns the last error code.
- * @return Error code from `ini_ht_error_t`.
- * @note Thread-safe; resets after each call.
- */
-INI_PUBLIC_API ini_ht_error_t ini_ht_last_error(void);
 INI_EXTERN_C_END
 
 #endif // !INI_HASH_TABLE_H

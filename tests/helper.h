@@ -1,11 +1,15 @@
 #ifndef HELPER_H
 #define HELPER_H
 
+#include "ini_os_check.h"
+
+#include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#ifdef _WIN32
+#if INI_OS_WINDOWS
+#include <shlobj.h>
 #include <windows.h>
 #define COLOR_RESET ""
 #define COLOR_INFO ""
@@ -19,6 +23,7 @@
 #define COLOR_ERROR "\033[31m"
 #define COLOR_WARNING "\033[33m"
 
+#include <sys/stat.h>
 #include <unistd.h>
 #endif
 
@@ -55,7 +60,7 @@ static void print_info(const char *format, ...)
 {
     va_list args;
     va_start(args, format);
-#ifdef _WIN32
+#if INI_OS_WINDOWS
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     SetConsoleTextAttribute(hConsole, FOREGROUND_BLUE | FOREGROUND_INTENSITY);
     vfprintf_s(__helper_lfd, format, args);
@@ -71,7 +76,7 @@ static void print_success(const char *format, ...)
 {
     va_list args;
     va_start(args, format);
-#ifdef _WIN32
+#if INI_OS_WINDOWS
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     SetConsoleTextAttribute(hConsole, FOREGROUND_GREEN | FOREGROUND_INTENSITY);
     vfprintf_s(__helper_lfd, format, args);
@@ -87,7 +92,7 @@ static void print_error(const char *format, ...)
 {
     va_list args;
     va_start(args, format);
-#ifdef _WIN32
+#if INI_OS_WINDOWS
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_INTENSITY);
     vfprintf_s(__helper_lfd, format, args);
@@ -103,7 +108,7 @@ static void print_warning(const char *format, ...)
 {
     va_list args;
     va_start(args, format);
-#ifdef _WIN32
+#if INI_OS_WINDOWS
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY);
     vfprintf_s(__helper_lfd, format, args);
@@ -123,21 +128,9 @@ static void create_test_file(const char *filename, const char *content)
         return;
     }
     FILE *file = fopen(filename, "w");
-    if (!file)
-    {
-        perror("Failed to create test file, do it manually after the test!");
-        exit(EXIT_FAILURE);
-    }
-    if (fprintf(file, "%s", content) < 0)
-    {
-        perror("Failed to write to test file");
-        exit(EXIT_FAILURE);
-    }
-    if (fclose(file) != 0)
-    {
-        perror("Failed to close test file, do it manually after the test!");
-        exit(EXIT_FAILURE);
-    }
+    assert(file);
+    assert(fprintf(file, "%s", content) >= 0);
+    assert(fclose(file) == 0);
 }
 
 static void remove_test_file(const char *filename)
@@ -147,48 +140,37 @@ static void remove_test_file(const char *filename)
         print_error("NULL filename\n");
         return;
     }
-#ifdef _WIN32
-    if (remove(filename) != 0)
-    {
-        perror("Failed to remove test file, do it manually after the test!");
-    }
+#if INI_OS_WINDOWS
+    assert(DeleteFile(filename));
 #else
-    if (unlink(filename) != 0)
-    {
-        perror("Failed to remove test file, do it manually after the test!");
-    }
+    assert(remove(filename) == 0);
 #endif
 }
 
 static void create_test_dir(const char *dirname)
 {
-#ifdef _WIN32
-    if (system("mkdir test_dir 2> nul") != 0)
-    {
-        perror("Failed to create test directory");
-        exit(EXIT_FAILURE);
-    }
+#if INI_OS_WINDOWS
+    assert(CreateDirectory(dirname, NULL));
 #else
-    if (system("mkdir -p test_dir") != 0)
-    {
-        perror("Failed to create test directory");
-        exit(EXIT_FAILURE);
-    }
+    assert(mkdir(dirname, 0755) == 0);
 #endif
 }
 
 static void remove_test_dir(const char *dirname)
 {
-#ifdef _WIN32
-    if (system("rmdir /Q /S test_dir 2> nul") != 0)
-    {
-        perror("Failed to remove test directory");
-    }
+#if INI_OS_WINDOWS
+    SHFILEOPSTRUCTA file_op = {
+        NULL,
+        FO_DELETE,
+        dirname,
+        NULL,
+        FOF_NOCONFIRMATION | FOF_SILENT,
+        FALSE,
+        NULL,
+        0};
+    assert(SHFileOperationA(&file_op) == 0);
 #else
-    if (system("rm -rf test_dir") != 0)
-    {
-        perror("Failed to remove test directory");
-    }
+    assert(rmdir(dirname) == 0);
 #endif
 }
 
