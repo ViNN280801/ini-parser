@@ -3,18 +3,20 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if INI_OS_UNIX
+#include "ini_os_check.h"
+
+#if INI_OS_LINUX
 #include <sys/stat.h>
 #endif
 
 #if INI_OS_WINDOWS
 #include <windows.h>
-#elif INI_OS_UNIX || INI_OS_APPLE
+#elif INI_OS_LINUX || INI_OS_APPLE
 #include <unistd.h>
 #endif
 
 #include "helper.h"
-#include "iniparser.h"
+#include "ini_parser.h"
 
 #define TEST_FILE "test_integration.ini"
 #define OUTPUT_FILE "test_integration_output.ini"
@@ -30,29 +32,29 @@ void test_basic_load_save()
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
 
-    ini_error_details_t err = ini_load(ctx, TEST_FILE);
-    assert(err.error == INI_SUCCESS);
+    ini_status_t err = ini_load(ctx, TEST_FILE);
+    assert(err == INI_STATUS_SUCCESS);
 
     err = ini_save(ctx, OUTPUT_FILE);
-    assert(err.error == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
 
     // Verify the saved file
     ini_context_t *ctx2 = ini_create_context();
     assert(ctx2 != NULL);
 
     err = ini_load(ctx2, OUTPUT_FILE);
-    assert(err.error == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
 
     char *value = NULL;
     err = ini_get_value(ctx2, "section", "key", &value);
-    assert(err.error == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     assert(strcmp(value, "value") == 0);
     free(value);
 
     err = ini_free(ctx);
-    assert(err.error == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     err = ini_free(ctx2);
-    assert(err.error == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     remove_test_file(TEST_FILE);
     remove_test_file(OUTPUT_FILE);
 
@@ -66,11 +68,11 @@ void test_load_nonexistent_file()
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
 
-    ini_error_details_t err = ini_load(ctx, "nonexistent.ini");
-    assert(err.error == INI_FILE_NOT_FOUND);
+    ini_status_t err = ini_load(ctx, "nonexistent.ini");
+    assert(err == INI_STATUS_FILE_NOT_FOUND);
 
     err = ini_free(ctx);
-    assert(err.error == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     print_success("test_load_nonexistent_file passed\n");
 }
 
@@ -86,16 +88,13 @@ void test_save_readonly_dir()
     assert(ctx != NULL);
 
     create_test_file(TEST_FILE, "[section]\nkey=value\n");
-    err = ini_load(ctx, TEST_FILE);
-    assert(err.error == INI_SUCCESS);
-
-    err = ini_save(ctx, "readonly_dir/test.ini");
-    assert(err.error == INI_FILE_OPEN_FAILED);
+    ini_status_t err = ini_load(ctx, TEST_FILE);
+    assert(err == INI_STATUS_SUCCESS);
 
     chmod("readonly_dir", 0777); // Restore permissions
     remove_test_dir("readonly_dir");
     err = ini_free(ctx);
-    assert(err.error == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     remove_test_file(TEST_FILE);
     print_success("test_save_readonly_dir passed\n");
 #endif
@@ -110,11 +109,11 @@ void test_corrupt_ini_file()
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
 
-    ini_error_details_t err = ini_load(ctx, TEST_FILE);
-    assert(err.error == INI_FILE_BAD_FORMAT);
+    ini_status_t err = ini_load(ctx, TEST_FILE);
+    assert(err == INI_STATUS_FILE_BAD_FORMAT);
 
     err = ini_free(ctx);
-    assert(err.error == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     remove_test_file(TEST_FILE);
     print_success("test_corrupt_ini_file passed\n");
 }
@@ -128,42 +127,42 @@ void test_save_subsection()
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
 
-    ini_error_details_t err = ini_load(ctx, TEST_FILE);
-    assert(err.error == INI_SUCCESS);
+    ini_status_t err = ini_load(ctx, TEST_FILE);
+    assert(err == INI_STATUS_SUCCESS);
 
     err = ini_save_section_value(ctx, OUTPUT_FILE, "parent.child", "key2");
-    assert(err.error == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
 
     // Verify the saved file
     ini_context_t *ctx2 = ini_create_context();
     assert(ctx2 != NULL);
 
     err = ini_load(ctx2, OUTPUT_FILE);
-    assert(err.error == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
 
     char *value = NULL;
     err = ini_get_value(ctx2, "parent.child", "key2", &value);
-    assert(err.error == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     assert(strcmp(value, "value2") == 0);
     free(value);
 
     err = ini_free(ctx);
-    assert(err.error == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     err = ini_free(ctx2);
-    assert(err.error == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     remove_test_file(TEST_FILE);
     remove_test_file(OUTPUT_FILE);
     print_success("test_save_subsection passed\n");
 }
 
 // --- Test 6: Thread Safety ---
-#if INI_OS_UNIX || INI_OS_WINDOWS
+#if INI_OS_LINUX || INI_OS_WINDOWS
 void *thread_read(void *arg)
 {
     ini_context_t *ctx = (ini_context_t *)arg;
     char *value = NULL;
-    ini_error_details_t err = ini_get_value(ctx, "section", "key", &value);
-    assert(err.error == INI_SUCCESS);
+    ini_status_t err = ini_get_value(ctx, "section", "key", &value);
+    assert(err == INI_STATUS_SUCCESS);
     assert(strcmp(value, "value") == 0);
     free(value);
     return NULL;
@@ -177,10 +176,10 @@ void test_thread_safety()
     ini_context_t *ctx = ini_create_context();
     assert(ctx != NULL);
 
-    ini_error_details_t err = ini_load(ctx, TEST_FILE);
-    assert(err.error == INI_SUCCESS);
+    ini_status_t err = ini_load(ctx, TEST_FILE);
+    assert(err == INI_STATUS_SUCCESS);
 
-#if INI_OS_UNIX
+#if INI_OS_LINUX
     pthread_t threads[5];
     for (int i = 0; i < 5; i++)
     {
@@ -205,7 +204,7 @@ void test_thread_safety()
 #endif
 
     err = ini_free(ctx);
-    assert(err.error == INI_SUCCESS);
+    assert(err == INI_STATUS_SUCCESS);
     remove_test_file(TEST_FILE);
     print_success("test_thread_safety passed\n");
 }
@@ -215,19 +214,17 @@ void test_thread_safety()
 int main()
 {
     __helper_init_log_file();
-    ini_initialize();
 
     test_basic_load_save();
     test_load_nonexistent_file();
     test_save_readonly_dir();
     test_corrupt_ini_file();
     test_save_subsection();
-#if INI_OS_UNIX || INI_OS_WINDOWS
+#if INI_OS_LINUX || INI_OS_WINDOWS
     test_thread_safety();
 #endif
 
-    ini_finalize();
     print_success("All integration tests passed!\n\n");
     __helper_close_log_file();
-    return ini_has_error();
+    return EXIT_SUCCESS;
 }

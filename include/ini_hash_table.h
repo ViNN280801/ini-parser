@@ -8,6 +8,8 @@
 #include "ini_export.h"
 #include "ini_mutex.h"
 
+INI_EXTERN_C_BEGIN
+
 /**
  * @brief Key-value pair for hash table entries.
  */
@@ -100,5 +102,7 @@ INI_PUBLIC_API ini_ht_iterator_t ini_ht_iterator(ini_ht_t *table);
  * @return 0 on success, -1 if no more entries.
  */
 INI_PUBLIC_API ini_status_t ini_ht_next(ini_ht_iterator_t *it, char **key, char **value);
+
+INI_EXTERN_C_END
 
 #endif // !INI_HASH_TABLE_H

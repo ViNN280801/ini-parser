@@ -15,6 +15,23 @@ typedef struct
 } ini_context_t;
 
 /**
+ * @brief Helper functions to store and retrieve section hash tables.
+ * @param sections Top-level hash table.
+ * @param section_name Section name.
+ * @param section_ht Section hash table.
+ * @return Error details (INI_SUCCESS on success).
+ */
+INI_PUBLIC_API void ini_store_section_ht(ini_ht_t *sections, char const *section_name, ini_ht_t *section_ht);
+
+/**
+ * @brief Retrieves a section hash table from the top-level hash table.
+ * @param sections Top-level hash table.
+ * @param section_name Section name.
+ * @return Section hash table, or NULL if not found.
+ */
+INI_PUBLIC_API ini_ht_t *ini_get_section_ht(ini_ht_t *sections, char const *section_name);
+
+/**
  * @brief Initializes a new INI parser context.
  *
  * Creates a thread-safe context for parsing INI files, including:

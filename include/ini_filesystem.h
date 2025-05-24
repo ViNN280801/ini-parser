@@ -8,6 +8,8 @@
 #include "ini_os_check.h"
 #include "ini_status.h"
 
+INI_EXTERN_C_BEGIN
+
 typedef struct
 {
     int read;    // 0 = false, 1 = true
@@ -77,5 +79,18 @@ INI_PUBLIC_API ini_status_t ini_check_file_status(char const *filepath);
  * @note Returns 0 for empty files, error for non-existent files
  */
 INI_PUBLIC_API ini_status_t ini_get_file_size(char const *filepath, size_t *size);
+
+/**
+ * @brief Check if a file contains UTF-8 BOM (Byte Order Mark).
+ *
+ * @param file Pointer to the opened file for reading.
+ * @return INI_STATUS_HAS_UTF8_BOM if the file contains UTF-8 BOM,
+ *         INI_STATUS_HASNT_UTF8_BOM if the file does not contain BOM,
+ *         INI_STATUS_INVALID_ARGUMENT if file is NULL,
+ *         The file pointer is rewound to the beginning if BOM is not found.
+ */
+INI_PUBLIC_API ini_status_t ini_check_utf8_bom(FILE *file);
+
+INI_EXTERN_C_END
 
 #endif // !INI_FILESYSTEM_H

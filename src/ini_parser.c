@@ -1,13 +1,12 @@
 #define INI_IMPLEMENTATION
+#include "ini_parser.h"
+#include "ini_filesystem.h"
+#include "ini_string.h"
 
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#include "ini_filesystem.h"
-#include "ini_parser.h"
-#include "ini_string.h"
 
 // Helper function to convert a pointer to string
 // This is used for storing pointers in the hash table
@@ -20,15 +19,14 @@ static char *ptr_to_str(void *ptr)
 
 // Helper function to convert a string back to pointer
 // This is used to retrieve pointers from the hash table
-static void *str_to_ptr(const char *str)
+static void *str_to_ptr(char const *str)
 {
     void *ptr;
     sscanf(str, "%p", &ptr);
     return ptr;
 }
 
-// Helper function to store section hash table
-static void store_section_ht(ini_ht_t *sections, const char *section_name, ini_ht_t *section_ht)
+INI_PUBLIC_API void ini_store_section_ht(ini_ht_t *sections, char const *section_name, ini_ht_t *section_ht)
 {
     char *str_ptr = ptr_to_str(section_ht);
     if (str_ptr)
@@ -38,10 +36,9 @@ static void store_section_ht(ini_ht_t *sections, const char *section_name, ini_h
     }
 }
 
-// Helper function to get section hash table
-static ini_ht_t *get_section_ht(ini_ht_t *sections, const char *section_name)
+INI_PUBLIC_API ini_ht_t *ini_get_section_ht(ini_ht_t *sections, char const *section_name)
 {
-    const char *str_ptr = ini_ht_get(sections, section_name);
+    char const *str_ptr = ini_ht_get(sections, section_name);
     if (!str_ptr)
         return NULL;
     return str_to_ptr(str_ptr);
@@ -127,6 +124,9 @@ INI_PUBLIC_API ini_status_t ini_good(char const *filepath)
     if (!file)
         return INI_STATUS_FILE_OPEN_FAILED;
 
+    // Check for UTF-8 BOM
+    ini_check_utf8_bom(file);
+
     size_t fileSize;
     fs_err = ini_get_file_size(filepath, &fileSize);
     if (fs_err != INI_STATUS_SUCCESS)
@@ -204,6 +204,12 @@ INI_PUBLIC_API ini_status_t ini_good(char const *filepath)
                     break;
                 }
             }
+            // Reject arrays (comma-separated values)
+            else if (strchr(value, ','))
+            {
+                error = INI_STATUS_FILE_BAD_FORMAT;
+                break;
+            }
         }
         else
         {
@@ -220,17 +226,13 @@ INI_PUBLIC_API ini_status_t ini_good(char const *filepath)
 
 INI_PUBLIC_API ini_status_t ini_load(ini_context_t *ctx, char const *filepath)
 {
-    if (!filepath)
-    {
+    if (!filepath || strlen(filepath) == 0)
         return INI_STATUS_INVALID_ARGUMENT;
-    }
 
     // Validate file first
     ini_status_t err = ini_good(filepath);
     if (err != INI_STATUS_SUCCESS)
-    {
         return err;
-    }
 
     // Create context if NULL
     ini_context_t *ctx_to_use = ctx;
@@ -283,20 +285,12 @@ INI_PUBLIC_API ini_status_t ini_load(ini_context_t *ctx, char const *filepath)
     if (!file)
     {
         if (need_to_free_on_error)
-        {
             ini_free(ctx_to_use);
-        }
         return INI_STATUS_FILE_OPEN_FAILED;
     }
 
     // Check for UTF-8 BOM
-    unsigned char bom[3];
-    size_t bytes_read = fread(bom, 1, 3, file);
-
-    if (bytes_read < 3 || bom[0] != 0xEF || bom[1] != 0xBB || bom[2] != 0xBF)
-    {
-        rewind(file);
-    }
+    ini_check_utf8_bom(file);
 
     // Lock context for thread safety
     if (ini_mutex_lock(&ctx_to_use->mutex) != 0)
@@ -371,7 +365,7 @@ INI_PUBLIC_API ini_status_t ini_load(ini_context_t *ctx, char const *filepath)
                 }
 
                 // Add it to the sections hash table
-                store_section_ht(ctx_to_use->sections, current_section, current_section_ht);
+                ini_store_section_ht(ctx_to_use->sections, current_section, current_section_ht);
             }
         }
         // Handle key-value pair
@@ -439,7 +433,7 @@ INI_PUBLIC_API ini_status_t ini_load(ini_context_t *ctx, char const *filepath)
                 }
 
                 // Add it to the sections hash table with empty string key
-                store_section_ht(ctx_to_use->sections, "", current_section_ht);
+                ini_store_section_ht(ctx_to_use->sections, "", current_section_ht);
             }
 
             // Add/update key-value pair in current section
@@ -466,25 +460,15 @@ INI_PUBLIC_API ini_status_t ini_get_value(ini_context_t const *ctx,
                                           char const *key,
                                           char **value)
 {
-    if (!ctx || !key || !value)
-    {
+    if (!ctx || !section || !key || !value)
         return INI_STATUS_INVALID_ARGUMENT;
-    }
-
-    // Default to empty string section if NULL
-    if (!section)
-    {
-        section = "";
-    }
 
     // Lock context for thread safety
     if (ini_mutex_lock((ini_mutex_t *)&ctx->mutex) != 0)
-    {
         return INI_STATUS_PLATFORM_ERROR;
-    }
 
     // Get the section hash table
-    ini_ht_t *section_ht = get_section_ht(ctx->sections, section);
+    ini_ht_t *section_ht = ini_get_section_ht(ctx->sections, section);
     if (!section_ht)
     {
         ini_mutex_unlock((ini_mutex_t *)&ctx->mutex);
@@ -589,9 +573,7 @@ INI_PUBLIC_API ini_status_t ini_save(ini_context_t const *ctx, char const *filep
 
     ini_mutex_unlock((ini_mutex_t *)&ctx->mutex);
     if (fclose(file) != 0)
-    {
         return INI_STATUS_CLOSE_FAILED;
-    }
 
     return INI_STATUS_SUCCESS;
 }
@@ -602,18 +584,14 @@ INI_PUBLIC_API ini_status_t ini_save_section_value(ini_context_t const *ctx,
                                                    char const *key)
 {
     if (!ctx || !filepath || !section)
-    {
         return INI_STATUS_INVALID_ARGUMENT;
-    }
 
     // Lock context for thread safety
     if (ini_mutex_lock((ini_mutex_t *)&ctx->mutex) != 0)
-    {
         return INI_STATUS_PLATFORM_ERROR;
-    }
 
     // Find section
-    ini_ht_t *section_ht = (ini_ht_t *)ini_ht_get(ctx->sections, section);
+    ini_ht_t *section_ht = ini_get_section_ht(ctx->sections, section);
     if (!section_ht)
     {
         ini_mutex_unlock((ini_mutex_t *)&ctx->mutex);
@@ -967,15 +945,11 @@ INI_PUBLIC_API ini_status_t ini_save_section_value(ini_context_t const *ctx,
 INI_PUBLIC_API ini_status_t ini_print(FILE *stream, ini_context_t const *ctx)
 {
     if (!stream || !ctx)
-    {
         return INI_STATUS_INVALID_ARGUMENT;
-    }
 
     // Lock context for thread safety
     if (ini_mutex_lock((ini_mutex_t *)&ctx->mutex) != 0)
-    {
         return INI_STATUS_PLATFORM_ERROR;
-    }
 
     // Iterate through all sections
     ini_ht_iterator_t sections_it = ini_ht_iterator((ini_ht_t *)ctx->sections);

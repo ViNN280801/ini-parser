@@ -8,12 +8,14 @@
 #include "ini_status.h"
 
 #if INI_OS_WINDOWS
-    #include <windows.h>
-    typedef CRITICAL_SECTION ini_mutex_base_t; ///< Windows mutex type.
+#include <windows.h>
+typedef CRITICAL_SECTION ini_mutex_base_t; ///< Windows mutex type.
 #else
-    #include <pthread.h>
-    typedef pthread_mutex_t ini_mutex_base_t; ///< POSIX mutex type.
+#include <pthread.h>
+typedef pthread_mutex_t ini_mutex_base_t; ///< POSIX mutex type.
 #endif
+
+INI_EXTERN_C_BEGIN
 
 typedef struct
 {
@@ -88,5 +90,7 @@ INI_PUBLIC_API ini_status_t ini_mutex_lock(ini_mutex_t *mutex);
  * Releases the mutex. For recursive mutexes, must be called same number of times as lock.
  */
 INI_PUBLIC_API ini_status_t ini_mutex_unlock(ini_mutex_t *mutex);
+
+INI_EXTERN_C_END
 
 #endif // !INI_MUTEX_H

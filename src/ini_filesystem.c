@@ -246,6 +246,9 @@ INI_PUBLIC_API ini_status_t ini_get_file_size(char const *filepath, size_t *size
     if (!filepath || !size)
         return INI_STATUS_INVALID_ARGUMENT;
 
+    if (ini_file_exists(filepath) != INI_STATUS_SUCCESS)
+        return INI_STATUS_FILE_NOT_FOUND;
+
     if (ini_is_file_directory(filepath) == INI_STATUS_FILE_IS_DIR)
         return INI_STATUS_FILE_IS_DIR;
 
@@ -266,4 +269,22 @@ INI_PUBLIC_API ini_status_t ini_get_file_size(char const *filepath, size_t *size
 #endif
 
     return INI_STATUS_SUCCESS;
+}
+
+INI_PUBLIC_API ini_status_t ini_check_utf8_bom(FILE *file)
+{
+    if (!file)
+        return INI_STATUS_INVALID_ARGUMENT;
+
+    unsigned char bom[INI_UTF8_BOM_SIZE];
+    size_t bytes_read = fread(bom, 1, INI_UTF8_BOM_SIZE, file);
+    if (bytes_read == INI_UTF8_BOM_SIZE &&
+        bom[0] == INI_UTF8_BOM_VALUE_0 &&
+        bom[1] == INI_UTF8_BOM_VALUE_1 &&
+        bom[2] == INI_UTF8_BOM_VALUE_2)
+        return INI_STATUS_HAS_UTF8_BOM;
+
+    // If BOM is not found, rewind the file
+    rewind(file);
+    return INI_STATUS_HASNT_UTF8_BOM;
 }

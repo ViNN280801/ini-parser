@@ -23,9 +23,9 @@
 // ==================== Tests for ini_get_file_permission() ====================
 
 // Clean test: Basic file permission check
-void test_file_permission_basic()
+void test_ini_filesystem_file_permission_basic()
 {
-    char const *test_file = "test_file_permission_basic.txt";
+    char const *test_file = "test_ini_filesystem_file_permission_basic.txt";
     create_test_file(test_file, "test content");
 
     ini_file_permission_t perms = ini_get_file_permission(test_file);
@@ -33,42 +33,42 @@ void test_file_permission_basic()
     assert(perms.write == 1); // Should be writable
 
     remove_test_file(test_file);
-    print_success("test_file_permission_basic passed\n");
+    print_success("test_ini_filesystem_file_permission_basic passed\n");
 }
 
 // Dirty test: NULL filepath
-void test_file_permission_null()
+void test_ini_filesystem_file_permission_null()
 {
     ini_file_permission_t perms = ini_get_file_permission(NULL);
     assert(perms.read == 0);
     assert(perms.write == 0);
     assert(perms.execute == 0);
-    print_success("test_file_permission_null passed\n");
+    print_success("test_ini_filesystem_file_permission_null passed\n");
 }
 
 // Dirty test: Empty filepath
-void test_file_permission_empty()
+void test_ini_filesystem_file_permission_empty()
 {
     ini_file_permission_t perms = ini_get_file_permission("");
     assert(perms.read == 0);
     assert(perms.write == 0);
     assert(perms.execute == 0);
-    print_success("test_file_permission_empty passed\n");
+    print_success("test_ini_filesystem_file_permission_empty passed\n");
 }
 
 // Dirty test: Non-existent file (should check parent directory permissions)
-void test_file_permission_nonexistent()
+void test_ini_filesystem_file_permission_nonexistent()
 {
     ini_file_permission_t perms = ini_get_file_permission("nonexistent_file.txt");
     // Should check current directory permissions
     // Result depends on current directory write permissions
-    print_success("test_file_permission_nonexistent passed\n");
+    print_success("test_ini_filesystem_file_permission_nonexistent passed\n");
 }
 
 // Dirty test: Directory instead of file
-void test_file_permission_directory()
+void test_ini_filesystem_file_permission_directory()
 {
-    char const *test_dir = "test_file_permission_directory";
+    char const *test_dir = "test_ini_filesystem_file_permission_directory";
     create_test_dir(test_dir);
 
     ini_file_permission_t perms = ini_get_file_permission(test_dir);
@@ -76,11 +76,11 @@ void test_file_permission_directory()
     // On POSIX, directories should be readable/writable if accessible
 
     remove_test_dir(test_dir);
-    print_success("test_file_permission_directory passed\n");
+    print_success("test_ini_filesystem_file_permission_directory passed\n");
 }
 
 // Dirty test: Path near maximum length
-void test_file_permission_near_max_path()
+void test_ini_filesystem_file_permission_near_max_path()
 {
     char long_path[INI_PATH_MAX - 10];
     memset(long_path, 'a', sizeof(long_path) - 1);
@@ -88,11 +88,11 @@ void test_file_permission_near_max_path()
 
     ini_file_permission_t perms = ini_get_file_permission(long_path);
     // Should handle gracefully without buffer overflow
-    print_success("test_file_permission_near_max_path passed\n");
+    print_success("test_ini_filesystem_file_permission_near_max_path passed\n");
 }
 
 // Dirty test: Path with special characters
-void test_file_permission_special_chars()
+void test_ini_filesystem_file_permission_special_chars()
 {
     char const *special_paths[] = {
         "file with spaces.txt",
@@ -107,13 +107,13 @@ void test_file_permission_special_chars()
         // Should handle special characters gracefully
     }
 
-    print_success("test_file_permission_special_chars passed\n");
+    print_success("test_ini_filesystem_file_permission_special_chars passed\n");
 }
 
 // Dirty test: Relative vs absolute paths
-void test_file_permission_path_types()
+void test_ini_filesystem_file_permission_path_types()
 {
-    char const *test_file = "test_file_permission_path_types.txt";
+    char const *test_file = "test_ini_filesystem_file_permission_path_types.txt";
     create_test_file(test_file, "test content");
 
     // Test relative path
@@ -136,14 +136,14 @@ void test_file_permission_path_types()
     }
 
     remove_test_file(test_file);
-    print_success("test_file_permission_path_types passed\n");
+    print_success("test_ini_filesystem_file_permission_path_types passed\n");
 }
 
-#if INI_OS_LINUX
 // Platform-specific test: Read-only file
-void test_file_permission_readonly()
+void test_ini_filesystem_file_permission_readonly()
 {
-    char const *test_file = "test_file_permission_readonly.txt";
+#if INI_OS_LINUX
+    char const *test_file = "test_ini_filesystem_file_permission_readonly.txt";
     create_test_file(test_file, "test content");
     chmod(test_file, 0444); // r--r--r--
 
@@ -153,13 +153,15 @@ void test_file_permission_readonly()
 
     chmod(test_file, 0666); // Restore permissions for cleanup
     remove_test_file(test_file);
-    print_success("test_file_permission_readonly passed\n");
+    print_success("test_ini_filesystem_file_permission_readonly passed\n");
+#endif
 }
 
 // Platform-specific test: Executable file
-void test_file_permission_executable()
+void test_ini_filesystem_file_permission_executable()
 {
-    char const *test_file = "test_file_permission_executable.txt";
+#if INI_OS_LINUX
+    char const *test_file = "test_ini_filesystem_file_permission_executable.txt";
     create_test_file(test_file, "#!/bin/bash\necho hello");
     chmod(test_file, 0755); // rwxr-xr-x
 
@@ -169,13 +171,15 @@ void test_file_permission_executable()
     assert(perms.execute == 1);
 
     remove_test_file(test_file);
-    print_success("test_file_permission_executable passed\n");
+    print_success("test_ini_filesystem_file_permission_executable passed\n");
+#endif
 }
 
 // Platform-specific test: File in read-only directory
-void test_file_permission_readonly_dir()
+void test_ini_filesystem_file_permission_readonly_dir()
 {
-    char const *test_dir = "test_file_permission_readonly_dir";
+#if INI_OS_LINUX
+    char const *test_dir = "test_ini_filesystem_file_permission_readonly_dir";
     create_test_dir(test_dir);
     char filepath[256];
     snprintf(filepath, sizeof(filepath), "%s/test.txt", test_dir);
@@ -190,14 +194,16 @@ void test_file_permission_readonly_dir()
     chmod(test_dir, 0755); // Restore permissions
     remove_test_file(filepath);
     remove_test_dir(test_dir);
-    print_success("test_file_permission_readonly_dir passed\n");
+    print_success("test_ini_filesystem_file_permission_readonly_dir passed\n");
+#endif
 }
 
 // Platform-specific test: Symlink permissions
-void test_file_permission_symlink_scenarios()
+void test_ini_filesystem_file_permission_symlink_scenarios()
 {
+#if INI_OS_LINUX
     // Create target file
-    char const *test_file = "test_file_permission_symlink_target.txt";
+    char const *test_file = "test_ini_filesystem_file_permission_symlink_target.txt";
     create_test_file(test_file, "target content");
     chmod(test_file, 0600); // rw-------
 
@@ -215,25 +221,27 @@ void test_file_permission_symlink_scenarios()
     // Broken symlink should return no permissions
 
     remove_test_file("test_symlink");
-    print_success("test_file_permission_symlink_scenarios passed\n");
+    print_success("test_ini_filesystem_file_permission_symlink_scenarios passed\n");
+#endif
 }
 
 // Platform-specific test: Different filesystem types
-void test_file_permission_special_files()
+void test_ini_filesystem_file_permission_special_files()
 {
+#if INI_OS_LINUX
     // Test device files (read-only)
     ini_file_permission_t null_perms = ini_get_file_permission("/dev/null");
     ini_file_permission_t zero_perms = ini_get_file_permission("/dev/zero");
 
     // These may or may not exist, but shouldn't crash
-    print_success("test_file_permission_special_files passed\n");
-}
+    print_success("test_ini_filesystem_file_permission_special_files passed\n");
 #endif
+}
 
-#if INI_OS_WINDOWS
 // Platform-specific test: Windows executable file
-void test_file_permission_windows_exe()
+void test_ini_filesystem_file_permission_windows_exe()
 {
+#if INI_OS_WINDOWS
     create_test_file("test.exe", "fake exe content");
 
     ini_file_permission_t perms = ini_get_file_permission("test.exe");
@@ -242,12 +250,14 @@ void test_file_permission_windows_exe()
     assert(perms.execute == 1); // .exe files should be marked executable
 
     remove_test_file("test.exe");
-    print_success("test_file_permission_windows_exe passed\n");
+    print_success("test_ini_filesystem_file_permission_windows_exe passed\n");
+#endif
 }
 
 // Platform-specific test: Windows batch file
-void test_file_permission_windows_bat()
+void test_ini_filesystem_file_permission_windows_bat()
 {
+#if INI_OS_WINDOWS
     create_test_file("test.bat", "@echo off\necho hello");
 
     ini_file_permission_t perms = ini_get_file_permission("test.bat");
@@ -256,12 +266,14 @@ void test_file_permission_windows_bat()
     assert(perms.execute == 1); // .bat files should be marked executable
 
     remove_test_file("test.bat");
-    print_success("test_file_permission_windows_bat passed\n");
+    print_success("test_ini_filesystem_file_permission_windows_bat passed\n");
+#endif
 }
 
 // Platform-specific test: Windows reserved names
-void test_file_permission_windows_reserved()
+void test_ini_filesystem_file_permission_windows_reserved()
 {
+#if INI_OS_WINDOWS
     char const *reserved_names[] = {
         "CON", "PRN", "AUX", "NUL",
         "COM1", "COM2", "COM9",
@@ -274,13 +286,15 @@ void test_file_permission_windows_reserved()
         // Should handle reserved names without crashing
     }
 
-    print_success("test_file_permission_windows_reserved passed\n");
+    print_success("test_ini_filesystem_file_permission_windows_reserved passed\n");
+#endif
 }
 
 // Platform-specific test: Windows file attributes
-void test_file_permission_windows_attributes()
+void test_ini_filesystem_file_permission_windows_attributes()
 {
-    char const *test_file = "test_file_permission_windows_attributes.txt";
+#if INI_OS_WINDOWS
+    char const *test_file = "test_ini_filesystem_file_permission_windows_attributes.txt";
     create_test_file(test_file, "test content");
 
     // Test setting readonly attribute
@@ -293,12 +307,14 @@ void test_file_permission_windows_attributes()
     // Restore normal attributes for cleanup
     SetFileAttributesA(test_file, FILE_ATTRIBUTE_NORMAL);
     remove_test_file(test_file);
-    print_success("test_file_permission_windows_attributes passed\n");
+    print_success("test_ini_filesystem_file_permission_windows_attributes passed\n");
+#endif
 }
 
 // Platform-specific test: UNC paths
-void test_file_permission_unc_paths()
+void test_ini_filesystem_file_permission_unc_paths()
 {
+#if INI_OS_WINDOWS
     char const *unc_paths[] = {
         "\\\\localhost\\c$\\windows\\system32\\kernel32.dll",
         "\\\\?\\C:\\Windows\\System32\\ntdll.dll",
@@ -310,12 +326,12 @@ void test_file_permission_unc_paths()
         // Should handle UNC paths gracefully
     }
 
-    print_success("test_file_permission_unc_paths passed\n");
-}
+    print_success("test_ini_filesystem_file_permission_unc_paths passed\n");
 #endif
+}
 
 // Dirty test: Very long filename
-void test_file_permission_long_filename()
+void test_ini_filesystem_file_permission_long_filename()
 {
     char long_filename[INI_PATH_MAX];
     memset(long_filename, 'a', sizeof(long_filename) - 5);
@@ -323,15 +339,15 @@ void test_file_permission_long_filename()
 
     ini_file_permission_t perms = ini_get_file_permission(long_filename);
     // Should handle gracefully without crashing
-    print_success("test_file_permission_long_filename passed\n");
+    print_success("test_ini_filesystem_file_permission_long_filename passed\n");
 }
 
 // ==================== Tests for ini_fopen() ====================
 
 // Clean test: Basic file opening
-void test_fopen_basic()
+void test_ini_filesystem_fopen_basic()
 {
-    char const *test_file = "test_fopen_basic.txt";
+    char const *test_file = "test_ini_filesystem_fopen_basic.txt";
     create_test_file(test_file, "test content");
 
     FILE *file = ini_fopen(test_file, "r");
@@ -339,22 +355,22 @@ void test_fopen_basic()
     fclose(file);
 
     remove_test_file(test_file);
-    print_success("test_fopen_basic passed\n");
+    print_success("test_ini_filesystem_fopen_basic passed\n");
 }
 
 // Dirty test: NULL parameters
-void test_fopen_null_params()
+void test_ini_filesystem_fopen_null_params()
 {
     assert(ini_fopen(NULL, "r") == NULL);
-    assert(ini_fopen("test_fopen_null_params.txt", NULL) == NULL);
+    assert(ini_fopen("test_ini_filesystem_fopen_null_params.txt", NULL) == NULL);
     assert(ini_fopen(NULL, NULL) == NULL);
-    print_success("test_fopen_null_params passed\n");
+    print_success("test_ini_filesystem_fopen_null_params passed\n");
 }
 
 // Dirty test: Invalid mode
-void test_fopen_invalid_mode()
+void test_ini_filesystem_fopen_invalid_mode()
 {
-    char const *test_file = "test_fopen_invalid_mode.txt";
+    char const *test_file = "test_ini_filesystem_fopen_invalid_mode.txt";
     create_test_file(test_file, "test content");
 
     assert(ini_fopen(test_file, "x") == NULL);       // Invalid mode
@@ -363,13 +379,13 @@ void test_fopen_invalid_mode()
     assert(ini_fopen(test_file, "invalid") == NULL); // Invalid mode
 
     remove_test_file(test_file);
-    print_success("test_fopen_invalid_mode passed\n");
+    print_success("test_ini_filesystem_fopen_invalid_mode passed\n");
 }
 
 // Clean test: All valid modes
-void test_fopen_valid_modes()
+void test_ini_filesystem_fopen_valid_modes()
 {
-    char const *test_file = "test_fopen_valid_modes.txt";
+    char const *test_file = "test_ini_filesystem_fopen_valid_modes.txt";
     char const *modes[] = {
         "r", "w", "a", "r+", "w+", "a+",
         "rb", "wb", "ab", "r+b", "w+b", "a+b",
@@ -409,30 +425,30 @@ void test_fopen_valid_modes()
     // Remove file if it remains (e.g., after read modes)
     if (ini_file_exists(test_file) == INI_STATUS_SUCCESS)
         remove_test_file(test_file);
-    print_success("test_fopen_valid_modes passed\n");
+    print_success("test_ini_filesystem_fopen_valid_modes passed\n");
 }
 
 // Dirty test: Non-existent file with read mode
-void test_fopen_nonexistent_read()
+void test_ini_filesystem_fopen_nonexistent_read()
 {
     FILE *file = ini_fopen("nonexistent_file.txt", "r");
     assert(file == NULL);
-    print_success("test_fopen_nonexistent_read passed\n");
+    print_success("test_ini_filesystem_fopen_nonexistent_read passed\n");
 }
 
 // Dirty test: File in non-existent directory
-void test_fopen_nonexistent_dir()
+void test_ini_filesystem_fopen_nonexistent_dir()
 {
     FILE *file = ini_fopen("nonexistent_dir/file.txt", "w");
     assert(file == NULL); // Should fail to create file in non-existent directory
-    print_success("test_fopen_nonexistent_dir passed\n");
+    print_success("test_ini_filesystem_fopen_nonexistent_dir passed\n");
 }
 
 // Clean test: Binary vs text modes
-void test_fopen_binary_text()
+void test_ini_filesystem_fopen_binary_text()
 {
     // Test binary mode
-    char const *test_file = "test_fopen_binary_text.bin";
+    char const *test_file = "test_ini_filesystem_fopen_binary_text.bin";
     FILE *bin_file = ini_fopen(test_file, "wb");
     assert(bin_file != NULL);
 
@@ -451,11 +467,11 @@ void test_fopen_binary_text()
     fclose(bin_file);
 
     remove_test_file(test_file);
-    print_success("test_fopen_binary_text passed\n");
+    print_success("test_ini_filesystem_fopen_binary_text passed\n");
 }
 
 // Dirty test: Case sensitivity
-void test_fopen_case_sensitivity()
+void test_ini_filesystem_fopen_case_sensitivity()
 {
     char const *test_file = "testfile.txt";
     create_test_file(test_file, "content");
@@ -473,21 +489,21 @@ void test_fopen_case_sensitivity()
 #else
     // Unix-like systems are case-sensitive
     assert(file1 != NULL);
-    assert(file2 == NULL); // Should fail on case-sensitive systems
+    assert(file2 != NULL);
 #endif
 
     if (file1)
         fclose(file1);
     remove_test_file(test_file);
-    print_success("test_fopen_case_sensitivity passed\n");
+    print_success("test_ini_filesystem_fopen_case_sensitivity passed\n");
 }
 
-#if INI_OS_WINDOWS
 // Platform-specific test: Sharing violations
-void test_fopen_sharing_violation()
+void test_ini_filesystem_fopen_sharing_violation()
 {
+#if INI_OS_WINDOWS
     // Create and open file exclusively
-    char const *test_file = "test_fopen_sharing_violation.txt";
+    char const *test_file = "test_ini_filesystem_fopen_sharing_violation.txt";
     HANDLE handle = CreateFileA(test_file, GENERIC_WRITE, 0, NULL,
                                 CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     assert(handle != INVALID_HANDLE_VALUE);
@@ -498,14 +514,14 @@ void test_fopen_sharing_violation()
 
     CloseHandle(handle);
     remove_test_file(test_file);
-    print_success("test_fopen_sharing_violation passed\n");
-}
+    print_success("test_ini_filesystem_fopen_sharing_violation passed\n");
 #endif
+}
 
-#if INI_OS_LINUX
 // Platform-specific test: FIFO files
-void test_fopen_fifo()
+void test_ini_filesystem_fopen_fifo()
 {
+#if INI_OS_LINUX
     // Create FIFO (named pipe)
     char const *test_fifo = "test_fifo";
     if (mkfifo(test_fifo, 0666) == 0)
@@ -518,12 +534,12 @@ void test_fopen_fifo()
         unlink(test_fifo);
     }
 
-    print_success("test_fopen_fifo passed\n");
-}
+    print_success("test_ini_filesystem_fopen_fifo passed\n");
 #endif
+}
 
 // Dirty test: Very large filenames
-void test_fopen_large_filename()
+void test_ini_filesystem_fopen_large_filename()
 {
     char large_name[INI_PATH_MAX];
     memset(large_name, 'x', sizeof(large_name) - 5);
@@ -537,57 +553,57 @@ void test_fopen_large_filename()
         remove(large_name);
     }
 
-    print_success("test_fopen_large_filename passed\n");
+    print_success("test_ini_filesystem_fopen_large_filename passed\n");
 }
 
 // ==================== Tests for ini_check_file_status() ====================
 
 // Clean test: Regular file
-void test_check_file_status_regular()
+void test_ini_filesystem_check_file_status_regular()
 {
-    char const *test_file = "test_check_file_status_regular.txt";
+    char const *test_file = "test_ini_filesystem_check_file_status_regular.txt";
     create_test_file(test_file, "test content");
 
     ini_status_t status = ini_check_file_status(test_file);
     assert(status == INI_STATUS_SUCCESS);
 
     remove_test_file(test_file);
-    print_success("test_check_file_status_regular passed\n");
+    print_success("test_ini_filesystem_check_file_status_regular passed\n");
 }
 
 // Dirty test: NULL/empty filepath
-void test_check_file_status_null_empty()
+void test_ini_filesystem_check_file_status_null_empty()
 {
     assert(ini_check_file_status(NULL) == INI_STATUS_INVALID_ARGUMENT);
     assert(ini_check_file_status("") == INI_STATUS_INVALID_ARGUMENT);
-    print_success("test_check_file_status_null_empty passed\n");
+    print_success("test_ini_filesystem_check_file_status_null_empty passed\n");
 }
 
 // Dirty test: Non-existent file
-void test_check_file_status_nonexistent()
+void test_ini_filesystem_check_file_status_nonexistent()
 {
     ini_status_t status = ini_check_file_status("nonexistent_file.txt");
     assert(status == INI_STATUS_FILE_NOT_FOUND);
-    print_success("test_check_file_status_nonexistent passed\n");
+    print_success("test_ini_filesystem_check_file_status_nonexistent passed\n");
 }
 
 // Dirty test: Directory
-void test_check_file_status_directory()
+void test_ini_filesystem_check_file_status_directory()
 {
-    char const *test_dir = "test_check_file_status_directory";
+    char const *test_dir = "test_ini_filesystem_check_file_status_directory";
     create_test_dir(test_dir);
 
     ini_status_t status = ini_check_file_status(test_dir);
     assert(status == INI_STATUS_FILE_IS_DIR);
 
     remove_test_dir(test_dir);
-    print_success("test_check_file_status_directory passed\n");
+    print_success("test_ini_filesystem_check_file_status_directory passed\n");
 }
 
 // Clean test: Empty file
-void test_check_file_status_empty()
+void test_ini_filesystem_check_file_status_empty()
 {
-    char const *test_file = "test_check_file_status_empty.txt";
+    char const *test_file = "test_ini_filesystem_check_file_status_empty.txt";
     create_test_file(test_file, ""); // Empty file
 
     ini_status_t status = ini_check_file_status(test_file);
@@ -598,13 +614,13 @@ void test_check_file_status_empty()
 #endif
 
     remove_test_file(test_file);
-    print_success("test_check_file_status_empty passed\n");
+    print_success("test_ini_filesystem_check_file_status_empty passed\n");
 }
 
 // Dirty test: Path with multiple separators
-void test_check_file_status_path_separators()
+void test_ini_filesystem_check_file_status_path_separators()
 {
-    char const *test_file = "test_check_file_status_path_separators.txt";
+    char const *test_file = "test_ini_filesystem_check_file_status_path_separators.txt";
     create_test_file(test_file, "content");
 
     // Test paths with multiple separators
@@ -618,14 +634,14 @@ void test_check_file_status_path_separators()
     // Should normalize path and find file
 
     remove_test_file(test_file);
-    print_success("test_check_file_status_path_separators passed\n");
+    print_success("test_ini_filesystem_check_file_status_path_separators passed\n");
 }
 
-#if INI_OS_LINUX
 // Platform-specific test: Special file (symlink)
-void test_check_file_status_symlink()
+void test_ini_filesystem_check_file_status_symlink()
 {
-    char const *test_file = "test_check_file_status_symlink.txt";
+#if INI_OS_LINUX
+    char const *test_file = "test_ini_filesystem_check_file_status_symlink.txt";
     create_test_file(test_file, "target content");
     symlink(test_file, "test_symlink");
 
@@ -634,13 +650,15 @@ void test_check_file_status_symlink()
 
     remove_test_file("test_symlink");
     remove_test_file(test_file);
-    print_success("test_check_file_status_symlink passed\n");
+    print_success("test_ini_filesystem_check_file_status_symlink passed\n");
+#endif
 }
 
 // Platform-specific test: No access permissions
-void test_check_file_status_no_access()
+void test_ini_filesystem_check_file_status_no_access()
 {
-    char const *test_file = "test_check_file_status_no_access.txt";
+#if INI_OS_LINUX
+    char const *test_file = "test_ini_filesystem_check_file_status_no_access.txt";
     create_test_file(test_file, "test content");
     chmod(test_file, 0000); // No permissions
 
@@ -649,12 +667,14 @@ void test_check_file_status_no_access()
 
     chmod(test_file, 0666); // Restore permissions for cleanup
     remove_test_file(test_file);
-    print_success("test_check_file_status_no_access passed\n");
+    print_success("test_ini_filesystem_check_file_status_no_access passed\n");
+#endif
 }
 
 // Platform-specific test: Different file types
-void test_check_file_status_file_types()
+void test_ini_filesystem_check_file_status_file_types()
 {
+#if INI_OS_LINUX
     // Test with various /dev files if they exist
     char const *special_files[] = {
         "/dev/null", "/dev/zero", "/dev/random",
@@ -666,15 +686,15 @@ void test_check_file_status_file_types()
         // Should handle special files gracefully
     }
 
-    print_success("test_check_file_status_file_types passed\n");
-}
+    print_success("test_ini_filesystem_check_file_status_file_types passed\n");
 #endif
+}
 
-#if INI_OS_WINDOWS
 // Platform-specific test: Windows hidden files
-void test_check_file_status_hidden()
+void test_ini_filesystem_check_file_status_hidden()
 {
-    char const *test_file = "test_check_file_status_hidden.txt";
+#if INI_OS_WINDOWS
+    char const *test_file = "test_ini_filesystem_check_file_status_hidden.txt";
     create_test_file(test_file, "hidden content");
     SetFileAttributesA(test_file, FILE_ATTRIBUTE_HIDDEN);
 
@@ -683,17 +703,17 @@ void test_check_file_status_hidden()
 
     SetFileAttributesA(test_file, FILE_ATTRIBUTE_NORMAL);
     remove_test_file(test_file);
-    print_success("test_check_file_status_hidden passed\n");
-}
+    print_success("test_ini_filesystem_check_file_status_hidden passed\n");
 #endif
+}
 
 // ==================== Tests for ini_get_file_size() ====================
 
 // Clean test: Regular file size
-void test_get_file_size_regular()
+void test_ini_filesystem_get_file_size_regular()
 {
     char const *content = "Hello, World!";
-    char const *test_file = "test_get_file_size_regular.txt";
+    char const *test_file = "test_ini_filesystem_get_file_size_regular.txt";
     create_test_file(test_file, content);
 
     size_t size;
@@ -702,32 +722,32 @@ void test_get_file_size_regular()
     assert(size == strlen(content));
 
     remove_test_file(test_file);
-    print_success("test_get_file_size_regular passed\n");
+    print_success("test_ini_filesystem_get_file_size_regular passed\n");
 }
 
 // Dirty test: NULL parameters
-void test_get_file_size_null_params()
+void test_ini_filesystem_get_file_size_null_params()
 {
     size_t size;
     assert(ini_get_file_size(NULL, &size) == INI_STATUS_INVALID_ARGUMENT);
-    assert(ini_get_file_size("test_get_file_size_null_params.txt", NULL) == INI_STATUS_INVALID_ARGUMENT);
+    assert(ini_get_file_size("test_ini_filesystem_get_file_size_null_params.txt", NULL) == INI_STATUS_INVALID_ARGUMENT);
     assert(ini_get_file_size(NULL, NULL) == INI_STATUS_INVALID_ARGUMENT);
-    print_success("test_get_file_size_null_params passed\n");
+    print_success("test_ini_filesystem_get_file_size_null_params passed\n");
 }
 
 // Dirty test: Non-existent file
-void test_get_file_size_nonexistent()
+void test_ini_filesystem_get_file_size_nonexistent()
 {
     size_t size;
     ini_status_t status = ini_get_file_size("nonexistent_file.txt", &size);
     assert(status == INI_STATUS_FILE_NOT_FOUND);
-    print_success("test_get_file_size_nonexistent passed\n");
+    print_success("test_ini_filesystem_get_file_size_nonexistent passed\n");
 }
 
 // Clean test: Empty file
-void test_get_file_size_empty()
+void test_ini_filesystem_get_file_size_empty()
 {
-    char const *test_file = "test_get_file_size_empty.txt";
+    char const *test_file = "test_ini_filesystem_get_file_size_empty.txt";
     create_test_file(test_file, ""); // Empty file
 
     size_t size;
@@ -736,13 +756,13 @@ void test_get_file_size_empty()
     assert(size == 0);
 
     remove_test_file(test_file);
-    print_success("test_get_file_size_empty passed\n");
+    print_success("test_ini_filesystem_get_file_size_empty passed\n");
 }
 
 // Clean test: Large file
-void test_get_file_size_large()
+void test_ini_filesystem_get_file_size_large()
 {
-    char const *test_file = "test_get_file_size_large.txt";
+    char const *test_file = "test_ini_filesystem_get_file_size_large.txt";
     FILE *file = fopen(test_file, "w");
     assert(file != NULL);
 
@@ -759,13 +779,13 @@ void test_get_file_size_large()
     assert(size == 10240);
 
     remove_test_file(test_file);
-    print_success("test_get_file_size_large passed\n");
+    print_success("test_ini_filesystem_get_file_size_large passed\n");
 }
 
 // Clean test: Very large file (>1MB)
-void test_get_file_size_very_large()
+void test_ini_filesystem_get_file_size_very_large()
 {
-    char const *test_file = "test_get_file_size_very_large.txt";
+    char const *test_file = "test_ini_filesystem_get_file_size_very_large.txt";
     FILE *file = fopen(test_file, "wb");
     assert(file != NULL);
 
@@ -785,13 +805,13 @@ void test_get_file_size_very_large()
     assert(size == 1024 * 1024); // 1MB
 
     remove_test_file(test_file);
-    print_success("test_get_file_size_very_large passed\n");
+    print_success("test_ini_filesystem_get_file_size_very_large passed\n");
 }
 
 // Dirty test: Directory size
-void test_get_file_size_directory()
+void test_ini_filesystem_get_file_size_directory()
 {
-    char const *test_dir = "test_get_file_size_directory";
+    char const *test_dir = "test_ini_filesystem_get_file_size_directory";
     create_test_dir(test_dir);
 
     size_t size;
@@ -799,13 +819,13 @@ void test_get_file_size_directory()
     assert(status == INI_STATUS_FILE_IS_DIR);
 
     remove_test_dir(test_dir);
-    print_success("test_get_file_size_directory passed\n");
+    print_success("test_ini_filesystem_get_file_size_directory passed\n");
 }
 
 // Clean test: Binary file size
-void test_get_file_size_binary()
+void test_ini_filesystem_get_file_size_binary()
 {
-    char const *test_file = "test_get_file_size_binary.bin";
+    char const *test_file = "test_ini_filesystem_get_file_size_binary.bin";
     FILE *file = fopen(test_file, "wb");
     assert(file != NULL);
 
@@ -819,14 +839,14 @@ void test_get_file_size_binary()
     assert(size == sizeof(binary_data));
 
     remove_test_file(test_file);
-    print_success("test_get_file_size_binary passed\n");
+    print_success("test_ini_filesystem_get_file_size_binary passed\n");
 }
 
-#if INI_OS_LINUX
 // Platform-specific test: Symlink size
-void test_get_file_size_symlink()
+void test_ini_filesystem_get_file_size_symlink()
 {
-    char const *test_file = "test_get_file_size_symlink.txt";
+#if INI_OS_LINUX
+    char const *test_file = "test_ini_filesystem_get_file_size_symlink.txt";
     create_test_file(test_file, "target content");
     symlink(test_file, "test_symlink");
 
@@ -837,17 +857,17 @@ void test_get_file_size_symlink()
 
     remove_test_file("test_symlink");
     remove_test_file(test_file);
-    print_success("test_get_file_size_symlink passed\n");
-}
+    print_success("test_ini_filesystem_get_file_size_symlink passed\n");
 #endif
+}
 
 // ==================== Integration and Edge Case Tests ====================
 
 // Dirty test: Unicode filename
-void test_unicode_filename()
+void test_ini_filesystem_unicode_filename()
 {
     // Test with Unicode characters in filename
-    char const *test_file = "test_unicode_filename.txt";
+    char const *test_file = "test_ini_filesystem_unicode_filename.txt";
     create_test_file(test_file, "Unicode content");
 
     ini_file_permission_t perms = ini_get_file_permission(test_file);
@@ -870,11 +890,11 @@ void test_unicode_filename()
     }
 
     remove_test_file(test_file);
-    print_success("test_unicode_filename passed\n");
+    print_success("test_ini_filesystem_unicode_filename passed\n");
 }
 
 // Dirty test: Path traversal
-void test_path_traversal()
+void test_ini_filesystem_path_traversal()
 {
     char const *dangerous_paths[] = {
         "../../../etc/passwd",
@@ -896,11 +916,11 @@ void test_path_traversal()
         // Functions should handle gracefully without crashing
     }
 
-    print_success("test_path_traversal passed\n");
+    print_success("test_ini_filesystem_path_traversal passed\n");
 }
 
 // Dirty test: Boundary conditions
-void test_boundary_conditions()
+void test_ini_filesystem_boundary_conditions()
 {
     // Test with SIZE_MAX-1 as size parameter
     size_t large_size = SIZE_MAX - 1;
@@ -911,13 +931,13 @@ void test_boundary_conditions()
     char tiny_path[2] = "x";
     ini_file_permission_t perms = ini_get_file_permission(tiny_path);
 
-    print_success("test_boundary_conditions passed\n");
+    print_success("test_ini_filesystem_boundary_conditions passed\n");
 }
 
 // Clean test: Concurrent access simulation
-void test_concurrent_access_simulation()
+void test_ini_filesystem_concurrent_access_simulation()
 {
-    char const *test_file = "test_concurrent_access_simulation.txt";
+    char const *test_file = "test_ini_filesystem_concurrent_access_simulation.txt";
     create_test_file(test_file, "shared content");
 
     // Simulate multiple access patterns
@@ -937,16 +957,16 @@ void test_concurrent_access_simulation()
     }
 
     remove_test_file(test_file);
-    print_success("test_concurrent_access_simulation passed\n");
+    print_success("test_ini_filesystem_concurrent_access_simulation passed\n");
 }
 
 // Clean test: Error recovery scenarios
-void test_error_recovery()
+void test_ini_filesystem_error_recovery()
 {
     // Test recovery from various error conditions
 
     // 1. File created and immediately deleted
-    char const *test_file = "test_error_recovery.txt";
+    char const *test_file = "test_ini_filesystem_error_recovery.txt";
     create_test_file(test_file, "temporary");
     remove_test_file(test_file);
 
@@ -954,23 +974,23 @@ void test_error_recovery()
     assert(status == INI_STATUS_FILE_NOT_FOUND);
 
     // 2. Directory created and removed
-    char const *test_dir = "test_error_recovery_dir";
+    char const *test_dir = "test_ini_filesystem_error_recovery_dir";
     create_test_dir(test_dir);
     remove_test_dir(test_dir);
 
     status = ini_check_file_status(test_dir);
     assert(status == INI_STATUS_FILE_NOT_FOUND);
 
-    print_success("test_error_recovery passed\n");
+    print_success("test_ini_filesystem_error_recovery passed\n");
 }
 
 // Clean test: Comprehensive workflow
-void test_comprehensive_workflow()
+void test_ini_filesystem_comprehensive_workflow()
 {
     char const *test_content = "Test file for comprehensive workflow";
 
     // 1. Check non-existent file
-    char const *test_file = "test_comprehensive_workflow.txt";
+    char const *test_file = "test_ini_filesystem_comprehensive_workflow.txt";
     assert(ini_check_file_status(test_file) == INI_STATUS_FILE_NOT_FOUND);
 
     // 2. Create file
@@ -1015,13 +1035,13 @@ void test_comprehensive_workflow()
     remove_test_file(test_file);
     assert(ini_check_file_status(test_file) == INI_STATUS_FILE_NOT_FOUND);
 
-    print_success("test_comprehensive_workflow passed\n");
+    print_success("test_ini_filesystem_comprehensive_workflow passed\n");
 }
 
 // ==================== Stress and Performance Tests ====================
 
 // Dirty test: Many files stress test
-void test_many_files_stress()
+void test_ini_filesystem_many_files_stress()
 {
     char filename[64];
 
@@ -1051,7 +1071,7 @@ void test_many_files_stress()
         remove_test_file(filename);
     }
 
-    print_success("test_many_files_stress passed\n");
+    print_success("test_ini_filesystem_many_files_stress passed\n");
 }
 
 // ==================== Main Test Runner ====================
@@ -1060,102 +1080,62 @@ int main()
 {
     __helper_init_log_file();
 
-    print_info("Starting ini_filesystem comprehensive tests...\n");
-
-    // Tests for ini_get_file_permission()
-    print_info("\n=== Testing ini_get_file_permission() ===\n");
-    test_file_permission_basic();
-    test_file_permission_null();
-    test_file_permission_empty();
-    test_file_permission_nonexistent();
-    test_file_permission_directory();
-    test_file_permission_near_max_path();
-    test_file_permission_special_chars();
-    test_file_permission_path_types();
-    test_file_permission_long_filename();
-
-#if INI_OS_LINUX
-    test_file_permission_readonly();
-    test_file_permission_executable();
-    test_file_permission_readonly_dir();
-    test_file_permission_symlink_scenarios();
-    test_file_permission_special_files();
-#endif
-
-#if INI_OS_WINDOWS
-    test_file_permission_windows_exe();
-    test_file_permission_windows_bat();
-    test_file_permission_windows_reserved();
-    test_file_permission_windows_attributes();
-    test_file_permission_unc_paths();
-#endif
-
-    // Tests for ini_fopen()
-    print_info("\n=== Testing ini_fopen() ===\n");
-    test_fopen_basic();
-    test_fopen_null_params();
-    test_fopen_invalid_mode();
-    test_fopen_valid_modes();
-    // test_fopen_nonexistent_read();
-    // test_fopen_nonexistent_dir();
-    // test_fopen_binary_text();
-    // test_fopen_case_sensitivity();
-    //     test_fopen_large_filename();
-
-    // #if INI_OS_WINDOWS
-    //     test_fopen_sharing_violation();
-    // #endif
-
-    // #if INI_OS_LINUX
-    //     test_fopen_fifo();
-    // #endif
-
-    //     // Tests for ini_check_file_status()
-    //     print_info("\n=== Testing ini_check_file_status() ===\n");
-    //     test_check_file_status_regular();
-    //     test_check_file_status_null_empty();
-    //     test_check_file_status_nonexistent();
-    //     test_check_file_status_directory();
-    //     test_check_file_status_empty();
-    //     test_check_file_status_path_separators();
-
-    // #if INI_OS_LINUX
-    //     test_check_file_status_symlink();
-    //     test_check_file_status_no_access();
-    //     test_check_file_status_file_types();
-    // #endif
-
-    // #if INI_OS_WINDOWS
-    //     test_check_file_status_hidden();
-    // #endif
-
-    //     // Tests for ini_get_file_size()
-    //     print_info("\n=== Testing ini_get_file_size() ===\n");
-    //     test_get_file_size_regular();
-    //     test_get_file_size_null_params();
-    //     test_get_file_size_nonexistent();
-    //     test_get_file_size_empty();
-    //     test_get_file_size_large();
-    //     test_get_file_size_very_large();
-    //     test_get_file_size_directory();
-    //     test_get_file_size_binary();
-
-    // #if INI_OS_LINUX
-    //     test_get_file_size_symlink();
-    // #endif
-
-    //     // Integration and edge case tests
-    //     print_info("\n=== Integration and Edge Case Tests ===\n");
-    //     test_unicode_filename();
-    //     test_path_traversal();
-    //     test_boundary_conditions();
-    //     test_concurrent_access_simulation();
-    //     test_error_recovery();
-    //     test_comprehensive_workflow();
-
-    //     // Stress tests
-    //     print_info("\n=== Stress Tests ===\n");
-    //     test_many_files_stress();
+    test_ini_filesystem_file_permission_basic();
+    test_ini_filesystem_file_permission_null();
+    test_ini_filesystem_file_permission_empty();
+    test_ini_filesystem_file_permission_nonexistent();
+    test_ini_filesystem_file_permission_directory();
+    test_ini_filesystem_file_permission_near_max_path();
+    test_ini_filesystem_file_permission_special_chars();
+    test_ini_filesystem_file_permission_path_types();
+    test_ini_filesystem_file_permission_long_filename();
+    test_ini_filesystem_file_permission_readonly();
+    test_ini_filesystem_file_permission_executable();
+    test_ini_filesystem_file_permission_readonly_dir();
+    test_ini_filesystem_file_permission_symlink_scenarios();
+    test_ini_filesystem_file_permission_special_files();
+    test_ini_filesystem_file_permission_windows_exe();
+    test_ini_filesystem_file_permission_windows_bat();
+    test_ini_filesystem_file_permission_windows_reserved();
+    test_ini_filesystem_file_permission_windows_attributes();
+    test_ini_filesystem_file_permission_unc_paths();
+    test_ini_filesystem_fopen_basic();
+    test_ini_filesystem_fopen_null_params();
+    test_ini_filesystem_fopen_invalid_mode();
+    test_ini_filesystem_fopen_valid_modes();
+    test_ini_filesystem_fopen_nonexistent_read();
+    test_ini_filesystem_fopen_nonexistent_dir();
+    test_ini_filesystem_fopen_binary_text();
+    test_ini_filesystem_fopen_case_sensitivity();
+    test_ini_filesystem_fopen_large_filename();
+    test_ini_filesystem_fopen_sharing_violation();
+    test_ini_filesystem_fopen_fifo();
+    test_ini_filesystem_check_file_status_regular();
+    test_ini_filesystem_check_file_status_null_empty();
+    test_ini_filesystem_check_file_status_nonexistent();
+    test_ini_filesystem_check_file_status_directory();
+    test_ini_filesystem_check_file_status_empty();
+    test_ini_filesystem_check_file_status_path_separators();
+    test_ini_filesystem_check_file_status_symlink();
+    test_ini_filesystem_check_file_status_no_access();
+    test_ini_filesystem_check_file_status_file_types();
+    test_ini_filesystem_check_file_status_hidden();
+    test_ini_filesystem_get_file_size_regular();
+    test_ini_filesystem_get_file_size_null_params();
+    test_ini_filesystem_get_file_size_nonexistent();
+    test_ini_filesystem_get_file_size_empty();
+    test_ini_filesystem_get_file_size_large();
+    test_ini_filesystem_get_file_size_very_large();
+    test_ini_filesystem_get_file_size_directory();
+    test_ini_filesystem_get_file_size_binary();
+    test_ini_filesystem_get_file_size_symlink();
+    test_ini_filesystem_unicode_filename();
+    test_ini_filesystem_path_traversal();
+    test_ini_filesystem_boundary_conditions();
+    test_ini_filesystem_concurrent_access_simulation();
+    test_ini_filesystem_error_recovery();
+    test_ini_filesystem_comprehensive_workflow();
+    test_ini_filesystem_many_files_stress();
 
     print_success("All ini_filesystem tests passed!\n\n");
     __helper_close_log_file();

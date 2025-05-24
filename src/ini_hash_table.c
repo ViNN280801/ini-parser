@@ -1,9 +1,9 @@
 #define INI_IMPLEMENTATION
-#include <stdlib.h>
-#include <string.h>
-
 #include "ini_hash_table.h"
 #include "ini_string.h"
+
+#include <stdlib.h>
+#include <string.h>
 
 ini_status_t __ini_details_ht_set_entry(ini_ht_key_value_t *entries, size_t capacity,
                                         char const *key, char const *value, size_t *plength);

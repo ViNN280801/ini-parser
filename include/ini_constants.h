@@ -11,6 +11,12 @@
 #define INI_BUFFER_SIZE 2048
 #define INI_HT_INITIAL_CAPACITY 16 ///< Initial capacity for the hash table. Must be a power of 2.
 
+/// @brief BOM (Byte Order Mark) for UTF-8 encoding
+#define INI_UTF8_BOM_SIZE 3
+#define INI_UTF8_BOM_VALUE_0 0xEF
+#define INI_UTF8_BOM_VALUE_1 0xBB
+#define INI_UTF8_BOM_VALUE_2 0xBF
+
 #if INI_OS_WINDOWS
     #include <io.h> // For _access()
     #include <windows.h>
