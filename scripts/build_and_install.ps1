@@ -15,18 +15,21 @@ The library type (static, shared). Default is "shared".
 The installation path. If not provided, skips installation.
 
 .PARAMETER Testing
-Enable or disable test compilation. Default is OFF.
+Enable or disable test compilation. Default is "OFF".
+
+.PARAMETER Arch
+Target architecture (x86, x64). Default is "x64".
 
 .PARAMETER Help
 Shows help.
 
 .EXAMPLE
 .\build_and_install.ps1
-Builds in Release configuration with shared libraries and tests disabled.
+Builds in Release configuration with shared libraries, tests disabled, and x64 architecture.
 
 .EXAMPLE
-.\build_and_install.ps1 -BuildType Debug -LibType static -Testing ON
-Builds in Debug configuration with static libraries and tests enabled.
+.\build_and_install.ps1 -BuildType Debug -LibType static -Testing ON -Arch x86
+Builds in Debug configuration with static libraries, tests enabled, and x86 architecture.
 #>
 
 param(
@@ -36,6 +39,8 @@ param(
     [string]$InstallPath,
     [ValidateSet("ON", "OFF")]
     [string]$Testing = "OFF",
+    [ValidateSet("x86", "x64")]
+    [string]$Arch = "x64",
     [switch]$Help
 )
 
@@ -44,12 +49,26 @@ function Main {
     $buildDir = Join-Path $projectRoot "build"
 
     # Configure CMake
-    Write-Host "Configuring CMake with BuildType=$BuildType, LibType=$LibType, Testing=$Testing..."
+    Write-Host "Configuring CMake with BuildType=$BuildType, LibType=$LibType, Testing=$Testing, Arch=$Arch..."
     $cmakeArgs = @(
         "-B", $buildDir,
         "-DBUILD_SHARED_LIBS=$($LibType -eq 'shared')",
         "-DINIPARSER_TESTS=$Testing"
     )
+
+    # Add architecture flag for Windows
+    if ($IsWindows) {
+        if ($Arch -eq "x86") {
+            $cmakeArgs += "-DCMAKE_GENERATOR_PLATFORM=Win32"
+        }
+        else {
+            $cmakeArgs += "-DCMAKE_GENERATOR_PLATFORM=x64"
+        }
+    }
+    # For Linux/macOS, use -m32/-m64 flags (если нужно)
+    elseif ($Arch -eq "x86") {
+        $cmakeArgs += "-DCMAKE_C_FLAGS=-m32", "-DCMAKE_CXX_FLAGS=-m32"
+    }
 
     # Only add CMAKE_BUILD_TYPE for single-config generators
     $generator = cmake --help | Select-String "Generators"
