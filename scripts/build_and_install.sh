@@ -7,6 +7,7 @@
 # - Build type (Debug/Release)
 # - Library type (static/shared)
 # - Testing (ON/OFF)
+# - Architecture (x86/x64)
 # - Custom install path
 # ==============================================
 
@@ -14,6 +15,7 @@
 BUILD_TYPE="Release"
 LIB_TYPE="shared"
 TESTING="OFF"
+ARCH="x64"
 INSTALL_PATH=""
 HELP=false
 
@@ -36,6 +38,10 @@ while [[ $# -gt 0 ]]; do
         TESTING="$2"
         shift 2
         ;;
+    --arch)
+        ARCH="$2"
+        shift 2
+        ;;
     --help)
         HELP=true
         shift
@@ -55,6 +61,7 @@ if [ "$HELP" = true ]; then
     echo "  --lib-type <static|shared>     Set library type (default: shared)"
     echo "  --install-path <path>          Set custom install path"
     echo "  --testing <ON|OFF>             Enable/disable tests (default: OFF)"
+    echo "  --arch <x86|x64>               Set target architecture (default: x64)"
     echo "  --help                         Show this help message"
     exit 0
 fi
@@ -75,12 +82,26 @@ if [[ "$TESTING" != "ON" && "$TESTING" != "OFF" ]]; then
     exit 1
 fi
 
+if [[ "$ARCH" != "x86" && "$ARCH" != "x64" ]]; then
+    echo "Error: Invalid architecture. Use x86 or x64."
+    exit 1
+fi
+
 # Configure and build
-echo "Configuring CMake with BuildType=$BUILD_TYPE, LibType=$LIB_TYPE, Testing=$TESTING..."
-cmake -B build \
-    -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
-    -DBUILD_SHARED_LIBS="$([ "$LIB_TYPE" = "shared" ] && echo "ON" || echo "OFF")" \
-    -DINIPARSER_TESTS="$TESTING"
+echo "Configuring CMake with BuildType=$BUILD_TYPE, LibType=$LIB_TYPE, Testing=$TESTING, Arch=$ARCH..."
+CMAKE_ARGS=(
+    "-B" "build"
+    "-DCMAKE_BUILD_TYPE=$BUILD_TYPE"
+    "-DBUILD_SHARED_LIBS=$([ "$LIB_TYPE" = "shared" ] && echo "ON" || echo "OFF")"
+    "-DINIPARSER_TESTS=$TESTING"
+)
+
+# Add architecture flags for Linux/macOS
+if [[ "$ARCH" == "x86" ]]; then
+    CMAKE_ARGS+=("-DCMAKE_C_FLAGS=-m32" "-DCMAKE_CXX_FLAGS=-m32")
+fi
+
+cmake "${CMAKE_ARGS[@]}"
 
 if [ $? -ne 0 ]; then
     echo "Error: CMake configuration failed."

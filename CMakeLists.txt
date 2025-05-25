@@ -12,8 +12,8 @@ set(CMAKE_C_STANDARD 99)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-option(INIPARSER_TESTS "Build tests" ON)
-option(INIPARSER_EXAMPLES "Build examples" ON)
+option(INIPARSER_TESTS "Build tests" OFF)
+option(INIPARSER_EXAMPLES "Build examples" OFF)
 
 # Build type settings - default to STATIC for tests
 if(NOT DEFINED BUILD_SHARED_LIBS)
@@ -166,3 +166,35 @@ if(INIPARSER_TESTS)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 endif()
+
+# ================ Installation ======================
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY AnyNewerVersion
+)
+
+install(TARGETS ${PROJECT_NAME} ${CPP_WRAPPER_NAME}
+    EXPORT ${PROJECT_NAME}Targets
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    RUNTIME DESTINATION bin
+    INCLUDES DESTINATION include
+)
+
+install(EXPORT ${PROJECT_NAME}Targets
+    FILE ${PROJECT_NAME}Config.cmake
+    NAMESPACE ${PROJECT_NAME}::
+    DESTINATION lib/cmake/${PROJECT_NAME}
+)
+
+install(DIRECTORY ${INI_INCLUDE_DIRS}/ DESTINATION include)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+    DESTINATION lib/cmake/${PROJECT_NAME}
+)
+
+# =========== How to find the library ================================================= #
+# find_package(iniparser CONFIG REQUIRED)
+# target_link_libraries(<TARGET> PRIVATE iniparser::iniparser iniparser::iniparser_cpp)
+# ===================================================================================== #

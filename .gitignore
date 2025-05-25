@@ -12,6 +12,9 @@
 .vscode/
 .cursor/
 
+# Python virtual environment
+venv/
+
 # Build files
 build/
 output/
