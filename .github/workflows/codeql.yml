@@ -17,7 +17,7 @@ on:
   pull_request:
     branches: ["main", "develop", "ci"]
   schedule:
-    - cron: "0 9 * * *" # every day at 9:00 AM
+    - cron: "0 9 1 * *" # every day at 9:00 AM
 
 jobs:
   analyze:
