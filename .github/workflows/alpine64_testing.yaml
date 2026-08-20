@@ -13,7 +13,7 @@ jobs:
     container: alpine:latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Cache dependencies
         uses: actions/cache@v4
